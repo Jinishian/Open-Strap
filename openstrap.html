@@ -1,0 +1,2071 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpenStrap — WHOOP for Windows</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#070C18;--surf:#0E1726;--surf2:#152035;--surf3:#1B2A40;
+  --border:#1E2E46;--accent:#00E5A0;--accent-d:rgba(0,229,160,.10);
+  --red:#FF4D6A;--yellow:#FFD166;--blue:#4D9EFF;--purple:#9D6EFF;
+  --text:#E8EDF5;--muted:#7B8FA8;
+  --mono:'JetBrains Mono',monospace;--sans:'Inter',sans-serif;
+  /* sleep stage colours */
+  --s-wake:#7B8FA8;--s-light:#4D9EFF;--s-deep:#9D6EFF;--s-rem:#00E5A0;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:var(--bg);color:var(--text);font-family:var(--sans);
+  min-height:100vh;display:flex;flex-direction:column;align-items:center;
+  padding:22px 18px 48px;
+  background-image:radial-gradient(ellipse 70% 35% at 50% -5%,rgba(0,229,160,.06) 0%,transparent 70%);
+}
+
+/* ── HEADER ── */
+.header{width:100%;max-width:720px;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:16px;margin-bottom:20px}
+.logo{display:flex;align-items:center;gap:11px}
+.beacon{width:9px;height:9px;border-radius:50%;background:var(--muted);flex-shrink:0;transition:background .4s,box-shadow .4s}
+.beacon.live{background:var(--accent);box-shadow:0 0 10px rgba(0,229,160,.6)}
+.beacon.seeking{background:var(--yellow);animation:blink 1.1s infinite}
+.brand-name{font-family:var(--mono);font-size:15px;font-weight:700;letter-spacing:.06em}
+.brand-tag{font-size:10px;color:var(--muted);letter-spacing:.12em;text-transform:uppercase}
+.tabs{display:flex;gap:4px;justify-content:center}
+.tab{background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--muted);padding:6px 16px;font-size:12px;font-family:var(--sans);font-weight:500;cursor:pointer;transition:all .18s}
+.tab:hover{border-color:var(--surf3);color:var(--text)}
+.tab.active{background:var(--surf2);border-color:var(--border);color:var(--text)}
+.btn-connect{background:var(--accent);color:#000;border:none;border-radius:7px;padding:9px 20px;font-family:var(--sans);font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap;transition:filter .18s,transform .12s}
+.btn-connect:hover:not(:disabled){filter:brightness(1.1);transform:translateY(-1px)}
+.btn-connect:active:not(:disabled){transform:none}
+.btn-connect.killing{background:transparent;color:var(--red);border:1px solid rgba(255,77,106,.5)}
+.btn-connect:disabled{background:var(--surf2);color:var(--muted);cursor:not-allowed;transform:none}
+
+/* ── NOTICES ── */
+.notices{width:100%;max-width:720px;display:flex;flex-direction:column;gap:9px;margin-bottom:14px}
+.notice{padding:11px 15px;border-radius:9px;font-size:12px;line-height:1.65;display:none}
+.notice.show{display:block}
+.notice code{font-family:var(--mono);font-size:11px;background:rgba(255,255,255,.07);padding:1px 5px;border-radius:3px}
+.notice.warn{background:rgba(255,209,102,.08);border:1px solid rgba(255,209,102,.25);color:var(--yellow)}
+.notice.error{background:rgba(255,77,106,.08);border:1px solid rgba(255,77,106,.25);color:var(--red)}
+.notice.info{background:var(--accent-d);border:1px solid rgba(0,229,160,.2);color:var(--accent)}
+
+/* ── CARD ── */
+.card{width:100%;max-width:720px;background:var(--surf);border:1px solid var(--border);border-radius:18px;padding:30px 30px 24px}
+.panel{display:none}
+.panel.active{display:block}
+
+/* ── LIVE: IDLE ── */
+#idle{display:flex;flex-direction:column;align-items:center;padding:20px 0 10px;gap:12px;text-align:center}
+.idle-icon{font-size:46px;opacity:.22}
+.idle-h{font-size:16px;font-weight:500;color:var(--muted)}
+.idle-p{font-size:12px;color:var(--muted);opacity:.65;line-height:1.75;max-width:360px}
+#connected{display:none}
+#connected.show{display:block}
+
+/* status badges row */
+.status-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.proto-badge{display:inline-flex;align-items:center;gap:6px;background:var(--surf2);border:1px solid var(--border);border-radius:20px;padding:3px 10px 3px 8px;font-size:10px;color:var(--muted)}
+.pdot{width:6px;height:6px;border-radius:50%;background:var(--muted);flex-shrink:0;transition:background .4s,box-shadow .4s}
+.pdot.full{background:var(--accent);box-shadow:0 0 6px rgba(0,229,160,.5)}
+.pdot.syncing{background:var(--blue);animation:blink .8s infinite}
+.pdot.sleep{background:var(--purple);box-shadow:0 0 6px rgba(157,110,255,.5)}
+.offload-bar{height:2px;border-radius:1px;background:var(--border);margin-bottom:12px;overflow:hidden;display:none}
+.offload-bar.show{display:block}
+.offload-fill{height:100%;background:var(--blue);width:0%;transition:width .4s}
+
+/* HR ring */
+.hero{display:flex;flex-direction:column;align-items:center;margin-bottom:24px}
+.ring-wrap{position:relative;width:160px;height:160px;margin-bottom:10px}
+.ring-wrap svg{width:160px;height:160px;transform:rotate(-90deg)}
+.ring-track{fill:none;stroke:var(--border);stroke-width:3.5}
+.ring-fill{fill:none;stroke:var(--accent);stroke-width:3.5;stroke-linecap:round;stroke-dasharray:452;stroke-dashoffset:452;transition:stroke-dashoffset .9s ease,stroke .5s}
+.ring-inner{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.hr-num{font-family:var(--mono);font-size:56px;font-weight:700;line-height:1;color:var(--text);transition:color .5s}
+.hr-bpm{font-size:10px;color:var(--muted);letter-spacing:.18em;text-transform:uppercase;margin-top:2px}
+.device-lbl{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.06em;margin-bottom:4px}
+
+/* 6-metric grid */
+.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:20px}
+.metric{background:var(--surf2);border:1px solid var(--border);border-radius:11px;padding:13px 10px;text-align:center}
+.m-lbl{font-size:9px;font-weight:600;color:var(--muted);letter-spacing:.13em;text-transform:uppercase;margin-bottom:7px}
+.m-val{font-family:var(--mono);font-size:24px;font-weight:600;color:var(--text);line-height:1;transition:color .4s}
+.m-unit{font-size:9px;color:var(--muted);margin-top:3px;letter-spacing:.05em}
+.m-src{font-size:8px;color:var(--muted);opacity:.55;margin-top:2px}
+
+/* sleep banner (auto-shows during sleep) */
+.sleep-banner{
+  display:none;align-items:center;justify-content:space-between;
+  background:rgba(157,110,255,.08);border:1px solid rgba(157,110,255,.2);
+  border-radius:10px;padding:10px 14px;margin-bottom:16px;
+}
+.sleep-banner.show{display:flex}
+.sleep-left{display:flex;align-items:center;gap:10px}
+.sleep-stage-pill{
+  font-family:var(--mono);font-size:11px;font-weight:600;
+  padding:3px 10px;border-radius:20px;
+  background:rgba(157,110,255,.2);color:var(--purple);
+}
+.sleep-stage-pill.rem{background:rgba(0,229,160,.15);color:var(--accent)}
+.sleep-stage-pill.light{background:rgba(77,158,255,.15);color:var(--blue)}
+.sleep-stage-pill.deep{background:rgba(157,110,255,.2);color:var(--purple)}
+.sleep-stage-pill.wake{background:rgba(123,143,168,.15);color:var(--muted)}
+.sleep-dur{font-size:11px;color:var(--muted)}
+.sleep-eff{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--purple)}
+
+/* mini hypnogram in live view */
+.hypno-mini{border-radius:6px;background:var(--surf2);display:block;width:100%;height:32px;margin-bottom:16px;display:none}
+.hypno-mini.show{display:block}
+
+/* ECG */
+.ecg-section{margin-bottom:18px}
+.ecg-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px}
+.ecg-lbl{font-size:9px;font-weight:600;color:var(--muted);letter-spacing:.13em;text-transform:uppercase}
+.ecg-status{font-family:var(--mono);font-size:10px;color:var(--muted)}
+.rr-dot{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--accent);margin-right:4px;vertical-align:middle;opacity:0;transition:opacity .3s}
+.rr-dot.on{opacity:1}
+#ecg{width:100%;height:80px;border-radius:9px;background:var(--surf2);display:block}
+
+/* session bar */
+.sess-bar{display:flex;align-items:center;justify-content:space-between;padding-top:14px;border-top:1px solid var(--border)}
+.sess-stats{display:flex;gap:16px;flex-wrap:wrap}
+.ss{font-size:10.5px;color:var(--muted)}
+.ss b{font-family:var(--mono);font-weight:600;color:var(--text)}
+.btn-sm{background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:5px 13px;font-size:11px;cursor:pointer;transition:border-color .2s,color .2s;font-family:var(--sans)}
+.btn-sm:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.btn-sm:disabled{opacity:.35;cursor:not-allowed}
+
+/* ── TRENDS PANEL ── */
+.trends-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.trends-title{font-size:13px;font-weight:600}
+.range-btns{display:flex;gap:4px}
+.rbtn{background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:5px;padding:4px 11px;font-size:11px;cursor:pointer;font-family:var(--sans);transition:all .15s}
+.rbtn.active{background:var(--surf2);color:var(--text);border-color:var(--surf3)}
+.chart-block{margin-bottom:20px}
+.chart-label{font-size:9px;font-weight:600;color:var(--muted);letter-spacing:.13em;text-transform:uppercase;margin-bottom:7px;display:flex;align-items:center;gap:8px}
+.chart-label span{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--text);letter-spacing:0;text-transform:none}
+.chart-cv{width:100%;height:108px;border-radius:9px;background:var(--surf2);display:block}
+.trends-empty{text-align:center;padding:44px 0;color:var(--muted);font-size:13px;line-height:1.8}
+.trends-empty .icon{font-size:36px;opacity:.2;margin-bottom:12px}
+
+/* sleep section in trends */
+.section-divider{display:flex;align-items:center;gap:12px;margin:24px 0 18px}
+.section-divider span{font-size:10px;font-weight:600;color:var(--muted);letter-spacing:.13em;text-transform:uppercase;white-space:nowrap}
+.section-divider::before,.section-divider::after{content:'';flex:1;height:1px;background:var(--border)}
+
+.sleep-summary-card{
+  background:var(--surf2);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:18px;
+}
+.sleep-sum-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.sleep-date{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.sleep-total{font-family:var(--mono);font-size:18px;font-weight:700;color:var(--text)}
+.sleep-eff-badge{font-family:var(--mono);font-size:11px;font-weight:600;padding:3px 9px;border-radius:5px;background:rgba(0,229,160,.12);color:var(--accent)}
+.stage-bar{display:flex;height:8px;border-radius:4px;overflow:hidden;gap:1px;margin-bottom:10px}
+.stage-seg{height:100%;border-radius:2px}
+.stage-legend{display:flex;gap:14px;flex-wrap:wrap}
+.stage-item{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted)}
+.stage-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.stage-pct{font-family:var(--mono);font-weight:600;color:var(--text);margin-left:2px}
+.hypno-full{width:100%;height:72px;border-radius:9px;background:var(--surf2);display:block;margin-bottom:14px}
+.sleep-stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}
+.sleep-stat{background:var(--surf3);border-radius:8px;padding:10px 8px;text-align:center}
+.sleep-stat-val{font-family:var(--mono);font-size:16px;font-weight:600;color:var(--text);line-height:1}
+.sleep-stat-lbl{font-size:9px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-top:4px}
+
+/* session list */
+.sess-list-title{font-size:9px;font-weight:600;color:var(--muted);letter-spacing:.13em;text-transform:uppercase;margin:22px 0 10px}
+.sess-item{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--surf2);border:1px solid var(--border);border-radius:9px;margin-bottom:7px}
+.sess-date{font-family:var(--mono);font-size:11px;color:var(--text);font-weight:600}
+.sess-meta{font-size:10px;color:var(--muted)}
+.badge{font-family:var(--mono);font-size:9.5px;font-weight:600;padding:2px 6px;border-radius:4px;background:var(--surf3);color:var(--muted)}
+.badge.green{background:rgba(0,229,160,.12);color:var(--accent)}
+.badge.blue{background:rgba(77,158,255,.12);color:var(--blue)}
+.badge.red{background:rgba(255,77,106,.12);color:var(--red)}
+.badge.purple{background:rgba(157,110,255,.12);color:var(--purple)}
+
+/* ── IMPORT PANEL ── */
+.import-intro{font-size:12px;color:var(--muted);line-height:1.75;margin-bottom:18px}
+.import-intro code{font-family:var(--mono);font-size:11px;background:var(--surf2);padding:1px 5px;border-radius:3px;color:var(--accent)}
+.drop-tabs{display:flex;gap:4px;margin-bottom:14px}
+.drop-tab{background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--muted);padding:5px 14px;font-size:11px;cursor:pointer;font-family:var(--sans);transition:all .15s}
+.drop-tab.active{background:var(--surf2);color:var(--text);border-color:var(--surf3)}
+.drop-zone{border:2px dashed var(--border);border-radius:14px;padding:40px 24px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;margin-bottom:16px;position:relative}
+.drop-zone.over{border-color:var(--accent);background:var(--accent-d)}
+.drop-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer}
+.drop-icon{font-size:34px;opacity:.28;margin-bottom:10px}
+.drop-h{font-size:13px;font-weight:500;color:var(--muted);margin-bottom:5px}
+.drop-p{font-size:11px;color:var(--muted);opacity:.55}
+.imp-progress{background:var(--surf2);border:1px solid var(--border);border-radius:11px;padding:14px;display:none;margin-bottom:14px}
+.imp-progress.show{display:block}
+.imp-bar-wrap{height:3px;background:var(--border);border-radius:2px;overflow:hidden;margin:8px 0}
+.imp-bar{height:100%;background:var(--accent);width:0%;transition:width .3s;border-radius:2px}
+.imp-status{font-size:11px;color:var(--muted);font-family:var(--mono)}
+.imp-result{background:var(--surf2);border:1px solid var(--border);border-radius:11px;padding:14px;display:none}
+.imp-result.show{display:block}
+.imp-sum{font-size:12px;color:var(--text);margin-bottom:6px}
+.imp-sum b{font-family:var(--mono);color:var(--accent)}
+.imp-range{font-size:10.5px;color:var(--muted);font-family:var(--mono)}
+
+/* ── FOOTER ── */
+.footer{margin-top:18px;font-size:10px;color:var(--muted);opacity:.4;text-align:center;line-height:1.7}
+.footer a{color:inherit}
+
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+@keyframes beat-pulse{0%{transform:scale(1)}40%{transform:scale(1.04)}100%{transform:scale(1)}}
+.beating{animation:beat-pulse .18s cubic-bezier(.25,.46,.45,.94)}
+
+/* ── HRV PANEL ── */
+.hrv-title-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.hrv-title{font-size:13px;font-weight:600}
+.hrv-subtitle{font-size:10px;color:var(--muted)}
+
+.hrv-metrics{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:18px}
+.hrv-m{background:var(--surf2);border:1px solid var(--border);border-radius:10px;padding:12px 8px;text-align:center}
+.hrv-m-val{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--text);line-height:1;margin-bottom:5px;transition:color .4s}
+.hrv-m-lbl{font-size:9px;font-weight:600;color:var(--muted);letter-spacing:.12em;text-transform:uppercase}
+.hrv-m-unit{font-size:9px;color:var(--muted);opacity:.6;margin-top:2px}
+.hrv-m-tip{font-size:8px;color:var(--muted);opacity:.45;margin-top:1px}
+
+.hrv-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px}
+.poincare-wrap{display:flex;flex-direction:column}
+.poincare-cv{width:100%;border-radius:10px;background:var(--surf2);display:block;aspect-ratio:1}
+.freq-cv{width:100%;height:172px;border-radius:10px;background:var(--surf2);display:block}
+.tach-cv{width:100%;height:88px;border-radius:9px;background:var(--surf2);display:block}
+
+.plot-legend{display:flex;gap:14px;margin-top:8px;flex-wrap:wrap}
+.pl-item{font-size:10px;color:var(--muted);display:flex;align-items:center;gap:5px}
+.pl-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.pl-item b{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--text)}
+
+.freq-bands{display:flex;gap:14px;margin-top:8px;flex-wrap:wrap;align-items:center}
+.fb{font-size:10px;color:var(--muted)}
+.fb b{font-family:var(--mono);font-size:11px;font-weight:700}
+.fb.lf b{color:var(--blue)}
+.fb.hf b{color:var(--accent)}
+.fb.ratio b{color:var(--yellow)}
+
+.hrv-idle{text-align:center;padding:44px 0;color:var(--muted);font-size:13px;line-height:1.8}
+.hrv-idle .icon{font-size:36px;opacity:.2;margin-bottom:12px}
+
+.interp-note{font-size:10px;color:var(--muted);opacity:.55;margin-top:6px;line-height:1.6;border-top:1px solid var(--border);padding-top:12px}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="logo">
+    <div class="beacon" id="beacon"></div>
+    <div><div class="brand-name">OpenStrap</div><div class="brand-tag">WHOOP · Windows · Open Source</div></div>
+  </div>
+  <nav class="tabs">
+    <button class="tab active" data-tab="live">Live</button>
+    <button class="tab" data-tab="trends">Trends</button>
+    <button class="tab" data-tab="sleep">Sleep</button>
+    <button class="tab" data-tab="hrv">HRV</button>
+    <button class="tab" data-tab="import">Import</button>
+  </nav>
+  <button class="btn-connect" id="btn-connect" onclick="App.toggleConnect()">Connect</button>
+</header>
+
+<div class="notices">
+  <div class="notice warn" id="n-compat">
+    <strong>Local server required.</strong> Running via <code>file://</code> blocks Bluetooth.<br>
+    Fix: <code>python -m http.server 8080</code> then open <code>http://localhost:8080/openstrap.html</code> in Chrome.
+  </div>
+  <div class="notice error" id="n-error"></div>
+  <div class="notice info"  id="n-info"></div>
+</div>
+
+<main class="card">
+
+  <!-- ═══ LIVE ═══ -->
+  <section id="panel-live" class="panel active">
+    <div id="idle">
+      <div class="idle-icon">⌚</div>
+      <div class="idle-h">No device connected</div>
+      <div class="idle-p">Connect your WHOOP 4.0 or 5.0 strap. Requires Chrome or Edge on Windows 10+ with Bluetooth 4.0+.</div>
+    </div>
+
+    <div id="connected">
+      <div class="status-row">
+        <div class="proto-badge"><div class="pdot" id="pdot-proto"></div><span id="lbl-proto">HR only</span></div>
+        <div class="proto-badge"><div class="pdot" id="pdot-offload"></div><span id="lbl-offload">No history</span></div>
+        <div class="proto-badge" id="sleep-badge" style="display:none"><div class="pdot sleep"></div><span id="lbl-sleep">Awake</span></div>
+      </div>
+      <div class="offload-bar" id="offload-bar"><div class="offload-fill" id="offload-fill"></div></div>
+
+      <!-- Sleep banner -->
+      <div class="sleep-banner" id="sleep-banner">
+        <div class="sleep-left">
+          <span class="sleep-stage-pill" id="live-stage-pill">Light</span>
+          <span class="sleep-dur" id="live-sleep-dur">0h 0m</span>
+        </div>
+        <span class="sleep-eff" id="live-sleep-eff">—%</span>
+      </div>
+
+      <!-- Mini hypnogram (shows during sleep) -->
+      <canvas class="hypno-mini" id="hypno-mini"></canvas>
+
+      <!-- HR ring -->
+      <div class="hero">
+        <div class="ring-wrap" id="ring-wrap">
+          <svg viewBox="0 0 160 160">
+            <circle class="ring-track" cx="80" cy="80" r="72"/>
+            <circle class="ring-fill"  cx="80" cy="80" r="72" id="ring-fill"/>
+          </svg>
+          <div class="ring-inner">
+            <div class="hr-num" id="hr-num">--</div>
+            <div class="hr-bpm">bpm</div>
+          </div>
+        </div>
+        <div class="device-lbl" id="device-lbl">—</div>
+      </div>
+
+      <!-- 6 metrics (3×2) -->
+      <div class="metrics">
+        <div class="metric"><div class="m-lbl">HRV · RMSSD</div><div class="m-val" id="m-hrv">--</div><div class="m-unit">ms</div></div>
+        <div class="metric"><div class="m-lbl">Recovery</div><div class="m-val" id="m-rec">--</div><div class="m-unit">/ 100</div></div>
+        <div class="metric"><div class="m-lbl">Strain</div><div class="m-val" id="m-strain">0.0</div><div class="m-unit">/ 21</div></div>
+        <div class="metric"><div class="m-lbl">SpO₂</div><div class="m-val" id="m-spo2">--</div><div class="m-unit">%</div><div class="m-src" id="spo2-src"></div></div>
+        <div class="metric"><div class="m-lbl">Respiration</div><div class="m-val" id="m-resp">--</div><div class="m-unit">br/min</div></div>
+        <div class="metric"><div class="m-lbl">Battery</div><div class="m-val" id="m-bat">--</div><div class="m-unit">%</div></div>
+      </div>
+
+      <!-- ECG -->
+      <div class="ecg-section">
+        <div class="ecg-hdr">
+          <span class="ecg-lbl">Cardiac Signal</span>
+          <span class="ecg-status"><span class="rr-dot" id="rr-dot"></span><span id="ecg-rr">awaiting R-R…</span></span>
+        </div>
+        <canvas id="ecg"></canvas>
+      </div>
+
+      <!-- Session bar -->
+      <div class="sess-bar">
+        <div class="sess-stats">
+          <div class="ss">Duration <b id="s-dur">0:00</b></div>
+          <div class="ss">Min <b id="s-min">--</b></div>
+          <div class="ss">Max <b id="s-max">--</b></div>
+          <div class="ss">Beats <b id="s-beats">0</b></div>
+        </div>
+        <button class="btn-sm" id="btn-export" onclick="App.exportCSV()" disabled>Export CSV</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ TRENDS ═══ -->
+  <section id="panel-trends" class="panel">
+    <div class="trends-hdr">
+      <span class="trends-title">Biometric Trends</span>
+      <div class="range-btns">
+        <button class="rbtn active" data-days="7"  onclick="App.setRange(7)">7d</button>
+        <button class="rbtn"        data-days="14" onclick="App.setRange(14)">14d</button>
+        <button class="rbtn"        data-days="30" onclick="App.setRange(30)">30d</button>
+      </div>
+    </div>
+    <div id="trends-empty" class="trends-empty"><div class="icon">📈</div>Complete a session or import WHOOP data to see trends.</div>
+    <div id="trends-charts" style="display:none">
+      <div class="chart-block"><div class="chart-label">HRV · RMSSD <span id="t-hrv-avg">—</span></div><canvas class="chart-cv" id="c-hrv"></canvas></div>
+      <div class="chart-block"><div class="chart-label">Recovery <span id="t-rec-avg">—</span></div><canvas class="chart-cv" id="c-rec"></canvas></div>
+      <div class="chart-block"><div class="chart-label">Resting Heart Rate <span id="t-rhr-avg">—</span></div><canvas class="chart-cv" id="c-rhr"></canvas></div>
+      <div class="chart-block"><div class="chart-label">SpO₂ <span id="t-spo2-avg">—</span></div><canvas class="chart-cv" id="c-spo2"></canvas></div>
+      <div class="chart-block"><div class="chart-label">Strain <span id="t-str-avg">—</span></div><canvas class="chart-cv" id="c-str"></canvas></div>
+      <div id="sess-list">
+        <div class="sess-list-title">Recent Sessions</div>
+        <div id="sess-items"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ SLEEP ═══ -->
+  <section id="panel-sleep" class="panel">
+    <div class="trends-hdr">
+      <span class="trends-title">Sleep Analysis</span>
+      <div class="range-btns">
+        <button class="rbtn active" data-days="7"  onclick="App.setSleepRange(7)">7d</button>
+        <button class="rbtn"        data-days="14" onclick="App.setSleepRange(14)">14d</button>
+        <button class="rbtn"        data-days="30" onclick="App.setSleepRange(30)">30d</button>
+      </div>
+    </div>
+
+    <div id="sleep-empty" class="trends-empty"><div class="icon">🌙</div>No sleep data yet.<br>Import WHOOP data or wear the strap overnight.</div>
+
+    <div id="sleep-content" style="display:none">
+      <!-- Last sleep summary -->
+      <div class="sleep-summary-card" id="last-sleep-card">
+        <div class="sleep-sum-hdr">
+          <div><div class="sleep-date" id="ls-date">Last night</div><div class="sleep-total" id="ls-total">— h — m</div></div>
+          <div style="text-align:right"><div class="sleep-date" id="ls-range"></div><div class="sleep-eff-badge" id="ls-eff">— %</div></div>
+        </div>
+        <!-- Hypnogram -->
+        <canvas class="hypno-full" id="hypno-full"></canvas>
+        <!-- Stage breakdown bar -->
+        <div class="stage-bar" id="ls-bar">
+          <div class="stage-seg" style="background:var(--s-wake)" id="seg-wake"></div>
+          <div class="stage-seg" style="background:var(--s-light)" id="seg-light"></div>
+          <div class="stage-seg" style="background:var(--s-deep)" id="seg-deep"></div>
+          <div class="stage-seg" style="background:var(--s-rem)" id="seg-rem"></div>
+        </div>
+        <div class="stage-legend">
+          <div class="stage-item"><div class="stage-dot" style="background:var(--s-wake)"></div>Wake<span class="stage-pct" id="pct-wake">—</span></div>
+          <div class="stage-item"><div class="stage-dot" style="background:var(--s-light)"></div>Light<span class="stage-pct" id="pct-light">—</span></div>
+          <div class="stage-item"><div class="stage-dot" style="background:var(--s-deep)"></div>Deep<span class="stage-pct" id="pct-deep">—</span></div>
+          <div class="stage-item"><div class="stage-dot" style="background:var(--s-rem)"></div>REM<span class="stage-pct" id="pct-rem">—</span></div>
+        </div>
+        <div class="sleep-stats-row">
+          <div class="sleep-stat"><div class="sleep-stat-val" id="ss-deep">—</div><div class="sleep-stat-lbl">Deep</div></div>
+          <div class="sleep-stat"><div class="sleep-stat-val" id="ss-rem">—</div><div class="sleep-stat-lbl">REM</div></div>
+          <div class="sleep-stat"><div class="sleep-stat-val" id="ss-latency">—</div><div class="sleep-stat-lbl">Latency</div></div>
+          <div class="sleep-stat"><div class="sleep-stat-val" id="ss-disruptions">—</div><div class="sleep-stat-lbl">Disruptions</div></div>
+        </div>
+      </div>
+
+      <!-- Sleep duration trend -->
+      <div class="chart-block"><div class="chart-label">Sleep Duration <span id="t-sleep-avg">—</span></div><canvas class="chart-cv" id="c-sleep"></canvas></div>
+      <div class="chart-block"><div class="chart-label">Sleep Efficiency <span id="t-eff-avg">—</span></div><canvas class="chart-cv" id="c-eff"></canvas></div>
+      <div class="chart-block"><div class="chart-label">Respiratory Rate <span id="t-resp-avg">—</span></div><canvas class="chart-cv" id="c-resp"></canvas></div>
+    </div>
+  </section>
+
+  <!-- ═══ HRV ═══ -->
+  <section id="panel-hrv" class="panel">
+
+    <div id="hrv-idle" class="hrv-idle">
+      <div class="icon">💓</div>
+      Connect a WHOOP strap. HRV analysis populates<br>once R-R interval data is received.
+    </div>
+
+    <div id="hrv-content" style="display:none">
+      <div class="hrv-title-row">
+        <span class="hrv-title">HRV Analysis</span>
+        <span class="hrv-subtitle" id="hrv-window-lbl">— R-R intervals</span>
+      </div>
+
+      <!-- 6 HRV metrics -->
+      <div class="hrv-metrics">
+        <div class="hrv-m"><div class="hrv-m-val" id="hm-rmssd">--</div><div class="hrv-m-lbl">RMSSD</div><div class="hrv-m-unit">ms</div><div class="hrv-m-tip">vagal tone</div></div>
+        <div class="hrv-m"><div class="hrv-m-val" id="hm-sdnn">--</div><div class="hrv-m-lbl">SDNN</div><div class="hrv-m-unit">ms</div><div class="hrv-m-tip">overall HRV</div></div>
+        <div class="hrv-m"><div class="hrv-m-val" id="hm-pnn50">--</div><div class="hrv-m-lbl">pNN50</div><div class="hrv-m-unit">%</div><div class="hrv-m-tip">beat-to-beat</div></div>
+        <div class="hrv-m"><div class="hrv-m-val" id="hm-sd1">--</div><div class="hrv-m-lbl">SD1</div><div class="hrv-m-unit">ms</div><div class="hrv-m-tip">short-term</div></div>
+        <div class="hrv-m"><div class="hrv-m-val" id="hm-sd2">--</div><div class="hrv-m-lbl">SD2</div><div class="hrv-m-unit">ms</div><div class="hrv-m-tip">long-term</div></div>
+        <div class="hrv-m"><div class="hrv-m-val" id="hm-lfhf">--</div><div class="hrv-m-lbl">LF/HF</div><div class="hrv-m-unit">ratio</div><div class="hrv-m-tip" id="lfhf-interp">—</div></div>
+      </div>
+
+      <!-- Poincaré + Frequency domain side-by-side -->
+      <div class="hrv-grid">
+        <div class="poincare-wrap">
+          <div class="chart-label">Poincaré Plot <span id="poincare-n">0 pairs</span></div>
+          <canvas class="poincare-cv" id="poincare"></canvas>
+          <div class="plot-legend">
+            <div class="pl-item"><div class="pl-dot" style="background:var(--accent)"></div>Latest</div>
+            <div class="pl-item"><div class="pl-dot" style="background:var(--blue)"></div>History</div>
+            <div class="pl-item"><div class="pl-dot" style="border:1px solid rgba(0,229,160,.4);background:transparent"></div>SD1/SD2 ellipse</div>
+          </div>
+        </div>
+        <div>
+          <div class="chart-label">Frequency Domain <span id="freq-note" style="color:var(--muted);font-size:9px;text-transform:none;letter-spacing:0">needs ~2 min</span></div>
+          <canvas class="freq-cv" id="freq-plot"></canvas>
+          <div class="freq-bands">
+            <div class="fb lf">LF <b id="lf-val">--</b> ms²</div>
+            <div class="fb hf">HF <b id="hf-val">--</b> ms²</div>
+            <div class="fb ratio">LF/HF <b id="lfhf2-val">--</b></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- R-R Tachogram -->
+      <div class="chart-block">
+        <div class="chart-label">R-R Tachogram <span id="tach-range">last 60 s</span></div>
+        <canvas class="tach-cv" id="tachogram"></canvas>
+      </div>
+
+      <!-- Interpretation note -->
+      <div class="interp-note">
+        <strong>RMSSD</strong> — parasympathetic (vagal) activity; higher = better recovery. &nbsp;
+        <strong>SD1</strong> — beat-to-beat variability (perpendicular to Poincaré identity line). &nbsp;
+        <strong>SD2</strong> — long-term variability (along identity line). &nbsp;
+        <strong>LF/HF</strong> — sympathovagal balance; &lt;1.5 = parasympathetic, &gt;2.5 = sympathetic dominance. Frequency domain requires ~2 min of continuous R-R data. All metrics are estimated approximations, not clinical measurements.
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ IMPORT ═══ -->
+  <section id="panel-import" class="panel">
+    <div class="import-intro">
+      Import your WHOOP data export. In the WHOOP app: <strong>Profile → App Settings → Export Data</strong>.<br>
+      Upload <code>physiological_cycles.csv</code> for daily metrics or <code>sleeps.csv</code> for sleep analysis.
+    </div>
+    <div class="drop-tabs">
+      <button class="drop-tab active" id="dt-cycles" onclick="App.setImportMode('cycles')">Daily Metrics</button>
+      <button class="drop-tab" id="dt-sleeps" onclick="App.setImportMode('sleeps')">Sleep Data</button>
+    </div>
+    <div class="drop-zone" id="drop-zone">
+      <input type="file" accept=".csv" id="file-input" onchange="App.handleFile(this.files[0])">
+      <div class="drop-icon">📂</div>
+      <div class="drop-h" id="drop-h">Drop physiological_cycles.csv</div>
+      <div class="drop-p">or click to browse</div>
+    </div>
+    <div class="imp-progress" id="imp-progress">
+      <div class="imp-status" id="imp-status">Reading…</div>
+      <div class="imp-bar-wrap"><div class="imp-bar" id="imp-bar"></div></div>
+    </div>
+    <div class="imp-result" id="imp-result">
+      <div class="imp-sum" id="imp-sum"></div>
+      <div class="imp-range" id="imp-range"></div>
+    </div>
+  </section>
+
+</main>
+
+<div class="footer">
+  OpenStrap v3.0 &nbsp;·&nbsp; Jinishian Industries LLC &nbsp;·&nbsp; MIT License<br>
+  Not affiliated with WHOOP, Inc. &nbsp;·&nbsp; Not a medical device &nbsp;·&nbsp;
+  <a href="https://github.com/derekjinishian">github.com/derekjinishian</a>
+</div>
+
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════════════════════════════
+// CRC (WHOOP 4.0 protocol — PROTOCOL.md §2.4)
+// ═══════════════════════════════════════════════════════════════════
+const CRC8_TBL = (() => {
+  const t = new Uint8Array(256);
+  for (let i=0;i<256;i++){let c=i;for(let j=0;j<8;j++)c=(c&0x80)?((c<<1)^0x07)&0xFF:(c<<1)&0xFF;t[i]=c;}
+  return t;
+})();
+const CRC32_TBL = (() => {
+  const t = new Uint32Array(256);
+  for (let i=0;i<256;i++){let c=i;for(let j=0;j<8;j++)c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1);t[i]=c;}
+  return t;
+})();
+const crc8  = b => { let c=0; for (const x of b) c=CRC8_TBL[c^x]; return c; };
+const crc32 = b => { let c=0xFFFFFFFF; for(const x of b)c=CRC32_TBL[(c^x)&0xFF]^(c>>>8); return(c^0xFFFFFFFF)>>>0; };
+
+// IEEE 11073-20601 SFLOAT (used in BLE PLX service for SpO₂)
+function sfloat16(dv, off) {
+  const raw = dv.getUint16(off, true);
+  const exp = (raw >> 12) & 0xF, mant = raw & 0x0FFF;
+  const se = exp > 7 ? exp-16 : exp, sm = mant > 2047 ? mant-4096 : mant;
+  return sm * Math.pow(10, se);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// REASSEMBLER (MTU fragmentation — PROTOCOL.md §2.5)
+// ═══════════════════════════════════════════════════════════════════
+class Reassembler {
+  constructor(){this._b=[]}
+  feed(bytes){
+    for(const b of bytes)this._b.push(b);
+    const frames=[];
+    while(true){
+      let sof=-1;
+      for(let i=0;i<this._b.length;i++){if(this._b[i]===0xAA){sof=i;break;}}
+      if(sof<0){this._b=[];break;}
+      if(sof>0)this._b.splice(0,sof);
+      if(this._b.length<4)break;
+      const len=this._b[1]|(this._b[2]<<8);
+      if(len<7||len>4096){this._b.splice(0,1);continue;}
+      if(this._b.length<len+4)break;
+      frames.push(new Uint8Array(this._b.splice(0,len+4)));
+    }
+    return frames;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// WHOOP BLE PROTOCOL (PROTOCOL.md §1–7)
+// ═══════════════════════════════════════════════════════════════════
+const UUID={
+  W4_SVC:'61080001-8d6d-82b8-614a-1c8cb0f8dcc6',
+  W4_CW :'61080002-8d6d-82b8-614a-1c8cb0f8dcc6',
+  W4_CN :'61080003-8d6d-82b8-614a-1c8cb0f8dcc6',
+  W4_EN :'61080004-8d6d-82b8-614a-1c8cb0f8dcc6',
+  W4_DN :'61080005-8d6d-82b8-614a-1c8cb0f8dcc6',
+  W5_SVC:'fd4b0001-cce1-4033-93ce-002d5875f58a',
+  HR_SVC:0x180d,HR_CH:0x2a37,
+  BAT_SVC:0x180f,BAT_CH:0x2a19,
+  PLX_SVC:0x1822,PLX_CH:0x2a5e,  // Pulse Oximeter service (standard BLE)
+};
+const CMD={HR:3,CLK_SET:10,CLK_GET:11,HIST_SEND:22,HIST_ACK:23,BAT:26,HELLO:35,RAW_OFF:63};
+const PKT={CMD:35,RSP:36,RT:40,HIST:47,EVT:48,META:49};
+
+class WhoopBLE extends EventTarget {
+  constructor(){super();this._cw=null;this._seq=0;this._re=new Reassembler();this._bonded=false;this._hc=0;}
+  buildFrame(cmd,payload=[0x00]){
+    const seq=(this._seq=(this._seq+1)&0xFF);
+    const inner=[PKT.CMD,seq,cmd,...payload];
+    const len=inner.length+4,lb=[len&0xFF,(len>>8)&0xFF];
+    const pc=crc32(inner);
+    return new Uint8Array([0xAA,...lb,crc8(lb),...inner,pc&0xFF,(pc>>8)&0xFF,(pc>>16)&0xFF,(pc>>24)&0xFF]);
+  }
+  verify(f){
+    if(f[0]!==0xAA||f.length<12)return false;
+    const len=f[1]|(f[2]<<8);
+    if(f.length<len+4)return false;
+    if(crc8([f[1],f[2]])!==f[3])return false;
+    const inner=f.slice(4,len),s=(f[len]|(f[len+1]<<8)|(f[len+2]<<16)|(f[len+3]<<24))>>>0;
+    return crc32(inner)===s;
+  }
+  async attach(server){
+    try{
+      const svc=await server.getPrimaryService(UUID.W4_SVC);
+      this._cw=await svc.getCharacteristic(UUID.W4_CW);
+      const sub=async id=>{const c=await svc.getCharacteristic(id);c.addEventListener('characteristicvaluechanged',e=>this._rx(e));await c.startNotifications();};
+      await sub(UUID.W4_CN);await sub(UUID.W4_EN);await sub(UUID.W4_DN);
+      await this._tx(CMD.BAT,[0x00],true);  // bond trigger (confirmed write)
+      return true;
+    }catch{return false;}
+  }
+  async attachPLX(server){
+    try{
+      const svc=await server.getPrimaryService(UUID.PLX_SVC);
+      const ch=await svc.getCharacteristic(UUID.PLX_CH);
+      await ch.startNotifications();
+      ch.addEventListener('characteristicvaluechanged',e=>this._rxPLX(e));
+      return true;
+    }catch{return false;}
+  }
+  _rxPLX(ev){
+    const dv=ev.target.value;
+    // PLX Continuous (0x2A5E): SpO₂ at bytes 1-2, PR at bytes 3-4 (SFLOAT16)
+    if(dv.byteLength>=5){
+      const spo2=sfloat16(dv,1),pr=sfloat16(dv,3);
+      if(spo2>70&&spo2<=100)this.emit('spo2',{pct:Math.round(spo2),source:'ble'});
+    }
+  }
+  _rx(ev){
+    const frames=this._re.feed(new Uint8Array(ev.target.value.buffer));
+    for(const f of frames){if(this.verify(f))this._route(f);}
+  }
+  _route(f){
+    const len=f[1]|(f[2]<<8),type=f[4],cmd=f[6];
+    const payload=Array.from(f.slice(7,len));
+    if(!this._bonded&&type===PKT.RSP){this._bonded=true;this._handshake();return;}
+    if(type===PKT.RSP&&cmd===CMD.BAT&&payload[0]>0)this.emit('battery',{pct:payload[0]});
+    if(type===PKT.HIST){this._hc++;this.emit('hist-rec',{count:this._hc});}
+    if(type===PKT.EVT&&payload.length)this._evtRoute(payload[0]);
+    if(type===PKT.META&&payload.length)this._metaRoute(payload);
+  }
+  async _handshake(){
+    const s=Math.floor(Date.now()/1000);
+    const cp=[s&0xFF,(s>>8)&0xFF,(s>>16)&0xFF,(s>>24)&0xFF,0,0,0,0];
+    await this._tx(CMD.HELLO,[0x00]);await wait(80);
+    await this._tx(CMD.CLK_SET,cp);await wait(80);
+    await this._tx(CMD.CLK_GET,[]);await wait(80);
+    await this._tx(CMD.RAW_OFF,[0x00]);await wait(80);
+    await this._tx(CMD.HR,[0x01]);
+    this.emit('bonded');
+    // Query battery through custom protocol — authoritative, overrides 0x2A19
+    await wait(400);
+    await this._tx(CMD.BAT,[0x00]);
+    // Periodic re-query every 5 minutes
+    this._batQueryTimer=setInterval(()=>this._tx(CMD.BAT,[0x00]),300000);
+    await wait(1200);
+    this._hc=0;await this._tx(CMD.HIST_SEND,[0x00]);
+    this.emit('hist-start');
+  }
+  _evtRoute(n){
+    this.emit('strap-event',{n});
+    if(n===9)this.emit('wrist-on');
+    if(n===10)this.emit('wrist-off');
+    if(n===14)this.emit('double-tap');
+  }
+  _metaRoute(p){
+    if(p[0]===1)this.emit('chunk-start');
+    else if(p[0]===2){const ed=p.slice(10,18);this._ackTrim(ed);this.emit('chunk-end',{count:this._hc});}
+    else if(p[0]===3)this.emit('hist-done',{count:this._hc});
+  }
+  async _ackTrim(ed){await this._tx(CMD.HIST_ACK,[0x01,...ed],true);}
+  async _tx(cmd,payload=[0x00],wr=false){
+    if(!this._cw)return;
+    const f=this.buildFrame(cmd,payload.length?payload:[0x00]);
+    try{wr?await this._cw.writeValueWithResponse(f):await this._cw.writeValueWithoutResponse(f);}
+    catch(e){console.warn('BLE TX',cmd,e.message);}
+  }
+  emit(n,d){this.dispatchEvent(new CustomEvent(n,{detail:d}));}
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SLEEP STAGER
+// Based on: Beattie et al. 2017; cardiorespiratory-only HRV staging
+// Accuracy ~67% 4-class without accelerometer — labelled "estimated"
+// ═══════════════════════════════════════════════════════════════════
+class SleepStager {
+  constructor(){this.epochs=[];this.baseHR=null;this.baseHRV=null;this._asleepSince=null;}
+
+  // Call every 30 seconds with current HR + RMSSD
+  addEpoch(hr, hrv, ts=Date.now()){
+    if(!this.baseHR&&hr>0) this.baseHR=hr;
+    if(!this.baseHRV&&hrv) this.baseHRV=hrv;
+    const stage=this._classify(hr,hrv);
+    this.epochs.push({ts,hr,hrv:hrv||0,stage});
+    if(stage!=='wake'&&!this._asleepSince) this._asleepSince=ts;
+    if(stage==='wake') this._asleepSince=null;
+    return stage;
+  }
+
+  _classify(hr,hrv){
+    if(!this.baseHR) return 'wake';
+    const dhr  = hr - this.baseHR;                          // delta from resting
+    const hrRat = hrv&&this.baseHRV ? hrv/this.baseHRV : 1; // HRV ratio vs baseline
+
+    // Wake: HR significantly elevated, or called within first 5 epochs
+    if(dhr>12) return 'wake';
+    if(this.epochs.length<5) return 'wake';
+
+    // REM: elevated HRV relative to baseline (auto-arousal pattern), moderate HR
+    if(hrRat>1.12&&dhr<9) return 'rem';
+
+    // Deep: suppressed HRV, HR at or below resting
+    if(dhr<1&&hrRat<0.68) return 'deep';
+
+    // Light: default sleep state
+    return 'light';
+  }
+
+  get isAsleep(){
+    const r=this.epochs.slice(-4);
+    return r.length>=4&&r.filter(e=>e.stage!=='wake').length>=3;
+  }
+
+  get asleepDurationMs(){
+    if(!this._asleepSince) return 0;
+    return Date.now()-this._asleepSince;
+  }
+
+  get summary(){
+    if(!this.epochs.length) return null;
+    const c={wake:0,light:0,deep:0,rem:0};
+    this.epochs.forEach(e=>c[e.stage]++);
+    const tot=this.epochs.length;
+    const tMin=tot*0.5; // 30s epochs
+    const asleep=this.epochs.filter(e=>e.stage!=='wake').length;
+    return{
+      totalMins:Math.round(tMin),
+      efficiency:Math.round(asleep/tot*100),
+      wake: Math.round(c.wake/tot*100),
+      light:Math.round(c.light/tot*100),
+      deep: Math.round(c.deep/tot*100),
+      rem:  Math.round(c.rem/tot*100),
+      deepMins:Math.round(c.deep*0.5),
+      remMins: Math.round(c.rem*0.5),
+    };
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ANALYTICS
+// ═══════════════════════════════════════════════════════════════════
+class Analytics {
+  constructor(age=30){
+    this.hrMax=Math.round(208-0.7*age);
+    this._rr=[];this._hr=[];this._base={v:[],mean:null,std:null};
+  }
+  pushRR(rr,ts=Date.now()){this._rr.push({ts,rr});const cut=ts-300000;while(this._rr.length&&this._rr[0].ts<cut)this._rr.shift();}
+  pushHR(hr,ts=Date.now()){this._hr.push({ts,hr});}
+  get rmssd(){
+    const rrs=this._rr.slice(-120).map(r=>r.rr);
+    if(rrs.length<2)return null;
+    let s=0;for(let i=1;i<rrs.length;i++){const d=rrs[i]-rrs[i-1];s+=d*d;}
+    return Math.sqrt(s/(rrs.length-1));
+  }
+  get recovery(){
+    const rv=this.rmssd;if(rv===null)return null;
+    const b=this._base;
+    if(b.mean===null){
+      b.v.push(rv);
+      if(b.v.length>=5){
+        b.mean=b.v.reduce((a,c)=>a+c,0)/b.v.length;
+        const v=b.v.reduce((a,c)=>a+(c-b.mean)**2,0)/b.v.length;
+        b.std=Math.max(Math.sqrt(v),2);
+      }
+      return null;
+    }
+    return Math.round(Math.max(0,Math.min(100,50+((rv-b.mean)/b.std)*17)));
+  }
+  get strain(){
+    if(this._hr.length<2)return 0;
+    let t=0;
+    for(let i=1;i<this._hr.length;i++){
+      const dt=(this._hr[i].ts-this._hr[i-1].ts)/60000;
+      if(dt>5||dt<0)continue;
+      const p=this._hr[i].hr/this.hrMax;
+      const w=p<.50?0:p<.60?1:p<.70?2:p<.80?3:p<.90?4:5;
+      t+=dt*w;
+    }
+    return Math.round(Math.min(21,Math.log(t+1)*3.6)*10)/10;
+  }
+  get minHR(){return this._hr.length?Math.min(...this._hr.map(h=>h.hr)):null;}
+  get maxHR(){return this._hr.length?Math.max(...this._hr.map(h=>h.hr)):null;}
+  get avgHR(){return this._hr.length?Math.round(this._hr.reduce((a,h)=>a+h.hr,0)/this._hr.length):null;}
+  // Respiration rate via RSA (respiratory sinus arrhythmia — simplified)
+  estimateResp(){
+    const rrs=this._rr.slice(-60).map(r=>r.rr); // last ~1 min
+    if(rrs.length<20)return null;
+    // Count zero-crossings of mean-subtracted RR series as breathing cycles
+    const mu=rrs.reduce((a,b)=>a+b,0)/rrs.length;
+    const z=rrs.map(r=>r-mu);
+    let cross=0;
+    for(let i=1;i<z.length;i++)if(z[i-1]<0&&z[i]>=0)cross++;
+    const durationSec=rrs.length*mu/1000;
+    const bpm=cross/(durationSec/60);
+    return (bpm>=6&&bpm<=35)?Math.round(bpm*10)/10:null;
+  }
+  reset(){this._rr=[];this._hr=[];this._base={v:[],mean:null,std:null};}
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// INDEXEDDB
+// ═══════════════════════════════════════════════════════════════════
+class DB {
+  async open(){
+    return new Promise((res,rej)=>{
+      const r=indexedDB.open('openstrap',4);
+      r.onupgradeneeded=e=>{
+        const db=e.target.result;
+        if(!db.objectStoreNames.contains('sessions'))db.createObjectStore('sessions',{keyPath:'id',autoIncrement:true}).createIndex('startTs','startTs');
+        if(!db.objectStoreNames.contains('daily'))db.createObjectStore('daily',{keyPath:'date'});
+        if(!db.objectStoreNames.contains('sleep'))db.createObjectStore('sleep',{keyPath:'date'});
+      };
+      r.onsuccess=e=>{this._db=e.target.result;res();};
+      r.onerror=e=>rej(e.target.error);
+    });
+  }
+  put(store,obj){return new Promise((res,rej)=>{const tx=this._db.transaction(store,'readwrite');const r=tx.objectStore(store).put(obj);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});}
+  getAll(store){return new Promise((res,rej)=>{const tx=this._db.transaction(store,'readonly');const r=tx.objectStore(store).getAll();r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});}
+  getDailyRange(days){
+    const cut=new Date();cut.setDate(cut.getDate()-days);const cs=cut.toISOString().slice(0,10);
+    return new Promise((res,rej)=>{
+      const tx=this._db.transaction('daily','readonly');
+      const r=tx.objectStore('daily').getAll(IDBKeyRange.lowerBound(cs));
+      r.onsuccess=()=>res(r.result.sort((a,b)=>a.date<b.date?-1:1));
+      r.onerror=()=>rej(r.error);
+    });
+  }
+  getSleepRange(days){
+    const cut=new Date();cut.setDate(cut.getDate()-days);const cs=cut.toISOString().slice(0,10);
+    return new Promise((res,rej)=>{
+      const tx=this._db.transaction('sleep','readonly');
+      const r=tx.objectStore('sleep').getAll(IDBKeyRange.lowerBound(cs));
+      r.onsuccess=()=>res(r.result.sort((a,b)=>a.date<b.date?-1:1));
+      r.onerror=()=>rej(r.error);
+    });
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// TREND CHART (canvas)
+// ═══════════════════════════════════════════════════════════════════
+class TrendChart {
+  constructor(cv,pad={}){this.cv=cv;this.cx=cv.getContext('2d');this.p={t:16,r:12,b:32,l:42,...pad};}
+  _init(){const dpr=window.devicePixelRatio||1;this.W=this.cv.offsetWidth;this.H=this.cv.offsetHeight||108;this.cv.width=this.W*dpr;this.cv.height=this.H*dpr;this.cx.setTransform(dpr,0,0,dpr,0,0);}
+  render(pts,{color='#00E5A0',fill=true,bars=false,yFmt=v=>v,xFmt=null,min=null,max=null}={}){
+    this._init();this.cx.clearRect(0,0,this.W,this.H);
+    if(!pts.length){this._empty();return;}
+    const{cx,p,W,H}=this;
+    const vals=pts.map(d=>d.y);
+    const mn=min??Math.min(...vals),mx=max??Math.max(...vals),range=mx-mn||1;
+    const pw=W-p.l-p.r,ph=H-p.t-p.b;
+    const px=i=>p.l+(i/Math.max(pts.length-1,1))*pw;
+    const py=v=>p.t+(1-(v-mn)/range)*ph;
+    // Grid
+    cx.strokeStyle='rgba(30,46,70,0.9)';cx.lineWidth=0.5;
+    [0,.25,.5,.75,1].forEach(f=>{const y=p.t+f*ph;cx.beginPath();cx.moveTo(p.l,y);cx.lineTo(W-p.r,y);cx.stroke();});
+    // Y labels
+    cx.font='9px JetBrains Mono';cx.fillStyle='#7B8FA8';cx.textAlign='right';
+    [0,.5,1].forEach(f=>cx.fillText(yFmt(Math.round(mn+(mx-mn)*f)),p.l-5,p.t+(1-f)*ph+3));
+    // X labels
+    if(xFmt){cx.textAlign='center';const step=Math.max(1,Math.ceil(pts.length/6));pts.forEach((d,i)=>{if(i%step!==0&&i!==pts.length-1)return;cx.fillText(xFmt(d.x,i),px(i),H-p.b+13);});}
+    if(bars){
+      const bw=Math.max(4,pw/pts.length*0.55),base=p.t+ph;
+      cx.fillStyle=color;
+      pts.forEach((_,i)=>{const h=base-py(pts[i].y);cx.beginPath();cx.roundRect(px(i)-bw/2,py(pts[i].y),bw,h,[3,3,0,0]);cx.fill();});
+    }else{
+      if(fill){
+        cx.beginPath();cx.moveTo(px(0),py(pts[0].y));pts.forEach((_,i)=>cx.lineTo(px(i),py(pts[i].y)));
+        cx.lineTo(px(pts.length-1),p.t+ph);cx.lineTo(px(0),p.t+ph);cx.closePath();
+        cx.fillStyle=h2a(color,.12);cx.fill();
+      }
+      cx.beginPath();cx.strokeStyle=color;cx.lineWidth=2;cx.lineJoin='round';
+      cx.moveTo(px(0),py(pts[0].y));pts.forEach((_,i)=>cx.lineTo(px(i),py(pts[i].y)));cx.stroke();
+      cx.fillStyle=color;pts.forEach((_,i)=>{cx.beginPath();cx.arc(px(i),py(pts[i].y),3,0,Math.PI*2);cx.fill();});
+    }
+  }
+  _empty(){const{cx,p,W,H}=this;cx.beginPath();cx.strokeStyle='rgba(30,46,70,.6)';cx.lineWidth=0.5;cx.moveTo(p.l,p.t+(H-p.t-p.b)/2);cx.lineTo(W-p.r,p.t+(H-p.t-p.b)/2);cx.stroke();}
+}
+function h2a(hex,a){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return`rgba(${r},${g},${b},${a})`;}
+
+// ═══════════════════════════════════════════════════════════════════
+// HYPNOGRAM RENDERER
+// ═══════════════════════════════════════════════════════════════════
+class Hypnogram {
+  constructor(cv,pad={}){this.cv=cv;this.cx=cv.getContext('2d');this.p={t:6,r:8,b:18,l:38,...pad};}
+  render(epochs){
+    const dpr=window.devicePixelRatio||1;
+    const W=this.cv.offsetWidth,H=this.cv.offsetHeight||72;
+    this.cv.width=W*dpr;this.cv.height=H*dpr;
+    const cx=this.cx;cx.setTransform(dpr,0,0,dpr,0,0);
+    cx.clearRect(0,0,W,H);
+    if(!epochs||!epochs.length)return;
+    const{p}=this;
+    const stages={wake:0,rem:1,light:2,deep:3};
+    const colors={wake:'#7B8FA8',rem:'#00E5A0',light:'#4D9EFF',deep:'#9D6EFF'};
+    const labels=['Wake','REM','Light','Deep'];
+    const startTs=epochs[0].ts,endTs=epochs[epochs.length-1].ts,span=endTs-startTs||1;
+    const pw=W-p.l-p.r,ph=H-p.t-p.b,sH=ph/4;
+    // Stage labels
+    cx.font='8px JetBrains Mono';cx.fillStyle='#7B8FA8';cx.textAlign='right';
+    labels.forEach((l,i)=>cx.fillText(l,p.l-3,p.t+(i+0.65)*sH));
+    // Grid lines
+    cx.strokeStyle='rgba(30,46,70,0.7)';cx.lineWidth=0.4;
+    for(let i=0;i<=4;i++){const y=p.t+i*sH;cx.beginPath();cx.moveTo(p.l,y);cx.lineTo(W-p.r,y);cx.stroke();}
+    // Stage blocks
+    epochs.forEach((ep,i)=>{
+      const x1=p.l+((ep.ts-startTs)/span)*pw;
+      const x2=i<epochs.length-1?p.l+((epochs[i+1].ts-startTs)/span)*pw:W-p.r;
+      const si=stages[ep.stage]??0;
+      const y=p.t+si*sH;
+      cx.fillStyle=colors[ep.stage]||'#7B8FA8';
+      cx.globalAlpha=0.82;cx.fillRect(x1,y+1,Math.max(x2-x1-1,1),sH-2);cx.globalAlpha=1;
+    });
+    // Time labels
+    if(span>0){
+      cx.font='8px JetBrains Mono';cx.fillStyle='#7B8FA8';cx.textAlign='center';
+      [0,.25,.5,.75,1].forEach(f=>{
+        const ts=startTs+f*span;
+        const d=new Date(ts);
+        const lbl=d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');
+        cx.fillText(lbl,p.l+f*pw,H-2);
+      });
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// CSV IMPORTER (physiological_cycles.csv + sleeps.csv)
+// ═══════════════════════════════════════════════════════════════════
+class CSVImporter {
+  parseCycles(text){
+    const{heads,rows}=this._base(text);
+    const fc=(...c)=>c.find(k=>heads.includes(k))??null;
+    const dateC=fc('cycle_start','start','date','day');
+    const rhrC=fc('resting_heart_rate','rhr','min_heart_rate');
+    const hrvC=fc('heart_rate_variability_rmssd','hrv_rmssd','hrv','heart_rate_variability');
+    const recC=fc('recovery_score','recovery');
+    const strC=fc('day_strain','strain','activity_strain');
+    const spo2C=fc('blood_oxygen_percentage','spo2');
+    const respC=fc('respiratory_rate','resp_rate');
+    return rows.map(r=>{
+      const g=k=>k?(r[heads.indexOf(k)]||'').trim():'';
+      const n=k=>{const v=parseFloat(g(k));return isNaN(v)?null:v;};
+      const date=this._date(g(dateC));if(!date)return null;
+      return{date,rhr:n(rhrC),hrv:n(hrvC),recovery:n(recC),strain:n(strC),spo2:n(spo2C),resp:n(respC)};
+    }).filter(Boolean);
+  }
+  parseSleeps(text){
+    const{heads,rows}=this._base(text);
+    const fc=(...c)=>c.find(k=>heads.includes(k))??null;
+    const dateC=fc('cycle_start','from','start','date');
+    const toC=fc('to','end');
+    const qualC=fc('quality_duration','asleep_duration','sleep_duration');
+    const ibC=fc('time_in_bed','in_bed_duration');
+    const wakeC=fc('wake_duration');
+    const lightC=fc('light_sleep_duration');
+    const deepC=fc('slow_wave_sleep_duration','deep_sleep_duration','sws_duration');
+    const remC=fc('rem_sleep_duration','rem_duration');
+    const distC=fc('disturbances_count','disruptions');
+    const latC=fc('latency');
+    const respC=fc('respiratory_rate');
+    return rows.map(r=>{
+      const g=k=>k?(r[heads.indexOf(k)]||'').trim():'';
+      const n=k=>{const v=parseFloat(g(k));return isNaN(v)?null:v;};
+      const ms=k=>{const v=n(k);if(v===null)return null;return v>3600?Math.round(v/60000):v;}; // ms or mins
+      const date=this._date(g(dateC));if(!date)return null;
+      const fromTs=g(toC?dateC:null);const toTs=g(toC);
+      const qual=ms(qualC),ib=ms(ibC),wake=ms(wakeC),light=ms(lightC),deep=ms(deepC),rem=ms(remC);
+      const total=qual||((light||0)+(deep||0)+(rem||0));
+      const inBed=ib||((total||0)+(wake||0));
+      const eff=inBed&&total?Math.round(total/inBed*100):null;
+      return{
+        date,fromTs,toTs,
+        totalMins:total,inBedMins:inBed,
+        wakeMins:wake,lightMins:light,deepMins:deep,remMins:rem,
+        efficiency:eff,
+        disruptions:n(distC),latency:n(latC),resp:n(respC),
+        wake: inBed&&wake?Math.round(wake/inBed*100):null,
+        light:inBed&&light?Math.round(light/inBed*100):null,
+        deep: inBed&&deep?Math.round(deep/inBed*100):null,
+        rem:  inBed&&rem?Math.round(rem/inBed*100):null,
+      };
+    }).filter(Boolean);
+  }
+  _base(text){
+    const lines=text.trim().split(/\r?\n/);
+    const heads=lines[0].split(',').map(h=>h.trim().toLowerCase().replace(/[\s\-]+/g,'_').replace(/[^a-z0-9_]/g,''));
+    const rows=lines.slice(1).map(l=>this._split(l)).filter(v=>v.length>2);
+    return{heads,rows};
+  }
+  _date(s){if(!s)return null;try{const d=new Date(s);return isNaN(d)?null:d.toISOString().slice(0,10);}catch{return null;}}
+  _split(l){const r=[];let c='',q=false;for(const ch of l){if(ch==='"')q=!q;else if(ch===','&&!q){r.push(c);c='';}else c+=ch;}r.push(c);return r;}
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ECG ANIMATION
+// ═══════════════════════════════════════════════════════════════════
+const ECG={
+  raf:null,last:null,phase:0,cv:null,cx:null,W:0,H:0,SPEED:64,
+  start(){
+    this.cv=document.getElementById('ecg');
+    const dpr=window.devicePixelRatio||1;
+    this.W=this.cv.offsetWidth;this.H=80;
+    this.cv.width=this.W*dpr;this.cv.height=this.H*dpr;
+    this.cx=this.cv.getContext('2d');this.cx.scale(dpr,dpr);
+    this.phase=0;this.last=null;this.draw();
+  },
+  stop(){if(this.raf){cancelAnimationFrame(this.raf);this.raf=null;}},
+  draw(ts){
+    this.raf=requestAnimationFrame(t=>this.draw(t));
+    const now=ts||performance.now();
+    const dt=this.last?Math.min((now-this.last)/1000,.05):0;
+    this.last=now;this.phase+=dt;
+    const{cx,W,H,SPEED}=this;
+    cx.clearRect(0,0,W,H);
+    // Grid
+    cx.strokeStyle='rgba(30,46,70,.85)';cx.lineWidth=0.5;
+    const gY=20,gX=42;
+    for(let y=gY;y<H;y+=gY){cx.beginPath();cx.moveTo(0,y);cx.lineTo(W,y);cx.stroke();}
+    const xOff=(this.phase*SPEED)%gX;
+    for(let x=gX-xOff;x<W;x+=gX){cx.beginPath();cx.moveTo(x,0);cx.lineTo(x,H);cx.stroke();}
+    const mid=H*.52,amp=H*.35,rrSec=(S.avgRR||850)/1000;
+    if(!S.live||!S.rrBuf.length){
+      cx.beginPath();cx.strokeStyle='rgba(123,143,168,.18)';cx.lineWidth=1.5;
+      cx.moveTo(0,mid);cx.lineTo(W,mid);cx.stroke();return;
+    }
+    const plot=()=>{for(let x=0;x<W;x++){const t=(((this.phase-(W-1-x)/SPEED)/rrSec)%1+1)%1;const y=mid-ecgS(t)*amp;x?cx.lineTo(x,y):cx.moveTo(x,y);}};
+    cx.beginPath();cx.strokeStyle='rgba(0,229,160,.18)';cx.lineWidth=7;plot();cx.stroke();
+    cx.beginPath();cx.strokeStyle='#00E5A0';cx.lineWidth=1.8;plot();cx.stroke();
+    const tT=((this.phase/rrSec)%1+1)%1,tY=mid-ecgS(tT)*amp;
+    cx.beginPath();cx.arc(W-2,tY,2.8,0,Math.PI*2);cx.fillStyle='#00E5A0';cx.fill();
+  }
+};
+function ecgS(t){return g(t,.12,.030,.14)+g(t,.215,.009,-.22)+g(t,.230,.013,1)+g(t,.247,.009,-.32)+g(t,.430,.058,.24);}
+function g(x,mu,s,a){return a*Math.exp(-.5*((x-mu)/s)**2);}
+
+// ═══════════════════════════════════════════════════════════════════
+// APP STATE
+// ═══════════════════════════════════════════════════════════════════
+const S={
+  live:false,sessStart:null,sessId:null,hr:0,avgRR:850,rrBuf:[],hrLog:[],
+  device:null,fullProto:false,
+  _batChar:null,           // kept for keepalive reads
+  _lastBatPct:null,        // last accepted battery reading (guards stale/garbage values)
+  _batTimer:null,          // periodic battery re-read timer
+  _reconnectAttempts:0,    // auto-reconnect counter
+  _manualDisconnect:false, // true when user pressed Disconnect — suppress reconnect
+};
+const anal=new Analytics(30);
+const stager=new SleepStager();
+const db=new DB();
+const importer=new CSVImporter();
+let durTimer=null,epochTimer=null;
+let trendRange=7,sleepRange=7,importMode='cycles';
+
+// ═══════════════════════════════════════════════════════════════════
+// APP
+// ═══════════════════════════════════════════════════════════════════
+const App={
+  async init(){
+    await db.open();
+    if(!navigator.bluetooth){
+      if(location.protocol==='file:')document.getElementById('n-compat').classList.add('show');
+      else{showNotice('error','Web Bluetooth unavailable. Use Chrome or Edge on Windows 10+.');document.getElementById('btn-connect').disabled=true;}
+    }
+    document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>App.switchTab(t.dataset.tab)));
+    const dz=document.getElementById('drop-zone');
+    dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('over');});
+    dz.addEventListener('dragleave',()=>dz.classList.remove('over'));
+    dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('over');App.handleFile(e.dataTransfer.files[0]);});
+  },
+
+  switchTab(tab){
+    document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===tab));
+    document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id===`panel-${tab}`));
+    if(tab==='trends')this.loadTrends();
+    if(tab==='sleep')this.loadSleep();
+    if(tab==='hrv')HRVPanel.update(S.rrBuf);
+  },
+
+  // ── CONNECTION ────────────────────────────────────────────────
+  async toggleConnect(){S.live?this.disconnect():await this.connect();}
+  ,
+  async connect(){
+    const btn=document.getElementById('btn-connect');
+    btn.disabled=true;btn.textContent='Scanning…';setBeacon('seeking');clearNotices();
+    try{
+      const device=await navigator.bluetooth.requestDevice({
+        filters:[{services:[UUID.W4_SVC]},{services:[UUID.W5_SVC]},{namePrefix:'WHOOP'}],
+        optionalServices:[UUID.HR_SVC,UUID.BAT_SVC,UUID.W4_SVC,UUID.W5_SVC,UUID.PLX_SVC],
+      });
+      S.device=device;
+      device.addEventListener('gattserverdisconnected',()=>this.onDisconnected());
+      btn.textContent='Connecting…';
+      const server=await device.gatt.connect();
+
+      // Standard HR service (works unbonded)
+      try{
+        const hs=await server.getPrimaryService(UUID.HR_SVC);
+        const hc=await hs.getCharacteristic(UUID.HR_CH);
+        await hc.startNotifications();
+        hc.addEventListener('characteristicvaluechanged',e=>this.onHR(e));
+      }catch{showNotice('error','HR service unavailable — wake the strap.');}
+
+      // Battery — save char reference but DO NOT read immediately.
+      // 0x2A19 returns stale/garbage values right at connect on WHOOP straps.
+      // We delay the first read by 3 s, then re-read every 90 s.
+      // The WHOOP custom protocol (CMD.BAT response) will override this once bonded.
+      try{
+        const bs=await server.getPrimaryService(UUID.BAT_SVC);
+        const bc=await bs.getCharacteristic(UUID.BAT_CH);
+        S._batChar=bc;
+        bc.addEventListener('characteristicvaluechanged',e=>this.setBattery(e.target.value.getUint8(0)));
+        try{await bc.startNotifications();}catch{}
+        // Delayed first read — strap needs time to initialize the characteristic
+        setTimeout(()=>this._readBattery(),3000);
+        // Periodic re-read for ongoing accuracy
+        S._batTimer=setInterval(()=>this._readBattery(),90000);
+      }catch{}
+
+      // PLX SpO₂ service — silent attempt, failure is fine
+      const whoopBle=new WhoopBLE();
+      whoopBle.attachPLX(server).then(ok=>{
+        if(ok){whoopBle.addEventListener('spo2',e=>this.setSpo2(e.detail.pct,'BLE'));setSource('spo2-src','BLE');}
+      }).catch(()=>{});
+
+      // Full WHOOP protocol — delayed 1 s so HR data flows first and
+      // the strap settles before receiving command frames
+      setTimeout(async()=>{
+        if(!S.live||!S.device?.gatt?.connected)return;
+        const ok=await whoopBle.attach(server).catch(()=>false);
+        S.fullProto=ok;
+        if(ok){
+          whoopBle.addEventListener('battery',  e=>this.setBattery(e.detail.pct));
+          whoopBle.addEventListener('bonded',   ()=>setStatus('pdot-proto','lbl-proto','full','Full protocol'));
+          whoopBle.addEventListener('hist-start',()=>this.onHistStart());
+          whoopBle.addEventListener('hist-rec', e=>this.onHistRec(e.detail.count));
+          whoopBle.addEventListener('chunk-end',e=>this.onHistRec(e.detail.count));
+          whoopBle.addEventListener('hist-done',e=>this.onHistDone(e.detail.count));
+          whoopBle.addEventListener('wrist-off',()=>showNotice('info','Strap removed from wrist.'));
+          whoopBle.addEventListener('double-tap',()=>showNotice('info','Double-tap ✓'));
+        }
+      },1000);
+
+      // Session start
+      S.live=true;S.sessStart=Date.now();S._manualDisconnect=false;
+      S.hrLog=[];S.rrBuf=[];
+      anal.reset();
+      Object.assign(stager,new SleepStager());
+      S.sessId=await db.put('sessions',{startTs:S.sessStart,device:device.name,samples:0});
+
+      setBeacon('live');
+      btn.disabled=false;btn.textContent='Disconnect';btn.classList.add('killing');
+      setStatus('pdot-proto','lbl-proto','','HR only');
+      setStatus('pdot-offload','lbl-offload','','No history');
+      document.getElementById('device-lbl').textContent=device.name||'WHOOP';
+      document.getElementById('idle').style.display='none';
+      document.getElementById('connected').classList.add('show');
+      document.getElementById('sleep-badge').style.display='';
+      this.startDurationTimer();
+      this.startEpochTimer();
+      this.startKeepalive();
+      ECG.start();
+    }catch(err){
+      if(err.name!=='NotFoundError')showNotice('error',err.message||'Connection failed.');
+      btn.disabled=false;btn.textContent='Connect';btn.classList.remove('killing');setBeacon('');
+    }
+  },
+
+  // Manual disconnect — flag so auto-reconnect is suppressed
+  disconnect(){
+    S._manualDisconnect=true;
+    if(S.device?.gatt?.connected)S.device.gatt.disconnect();
+    this._fullDisconnect();
+  },
+
+  // Called by gattserverdisconnected event (unexpected drop)
+  onDisconnected(){
+    if(S.live && S.device && !S._manualDisconnect && S._reconnectAttempts<5){
+      this._doReconnect(); return;
+    }
+    this._fullDisconnect();
+  },
+
+  // Auto-reconnect with exponential backoff (up to 5 attempts, max 8 s gap)
+  async _doReconnect(){
+    S._reconnectAttempts++;
+    const delay=Math.min(1200*S._reconnectAttempts,8000);
+    setBeacon('seeking');
+    showNotice('info',`Connection lost — reconnecting (${S._reconnectAttempts}/5)…`);
+    await wait(delay);
+    if(!S.live||!S.device){this._fullDisconnect();return;}
+    try{
+      const server=await S.device.gatt.connect();
+      await this._resubscribe(server);
+      S._reconnectAttempts=0;
+      setBeacon('live');
+      clearNotices();
+      showNotice('info','Reconnected ✓');
+      setTimeout(clearNotices,2500);
+    }catch{
+      this.onDisconnected(); // will try again or give up
+    }
+  },
+
+  // Re-attach HR + battery notifications after reconnect
+  async _resubscribe(server){
+    try{
+      const hs=await server.getPrimaryService(UUID.HR_SVC);
+      const hc=await hs.getCharacteristic(UUID.HR_CH);
+      await hc.startNotifications();
+      hc.addEventListener('characteristicvaluechanged',e=>this.onHR(e));
+    }catch{}
+    try{
+      if(S._batChar){
+        S._batChar.addEventListener('characteristicvaluechanged',e=>this.setBattery(e.target.value.getUint8(0)));
+        try{await S._batChar.startNotifications();}catch{}
+      }
+    }catch{}
+  },
+
+  // Keepalive: read battery every 12 s to prevent strap idle timeout
+  startKeepalive(){
+    this.stopKeepalive();
+    this._kaTimer=setInterval(async()=>{
+      if(!S.live||!S.device?.gatt?.connected)return;
+      try{if(S._batChar)await S._batChar.readValue();}catch{}
+    },12000);
+  },
+  stopKeepalive(){clearInterval(this._kaTimer);this._kaTimer=null;},
+
+  // Full teardown (manual disconnect or reconnect exhausted)
+  _fullDisconnect(){
+    S.live=false;S.device=null;S._batChar=null;
+    S._lastBatPct=null;
+    S._reconnectAttempts=0;S._manualDisconnect=false;
+    clearInterval(S._batTimer);S._batTimer=null;
+    this.stopDurationTimer();this.stopEpochTimer();this.stopKeepalive();
+    ECG.stop();this.saveSessionEnd();HRVPanel.reset();
+    const btn=document.getElementById('btn-connect');
+    btn.disabled=false;btn.textContent='Connect';btn.classList.remove('killing');setBeacon('');
+    document.getElementById('idle').style.display='';
+    document.getElementById('connected').classList.remove('show');
+  },
+
+  // ── PROTOCOL EVENTS ──────────────────────────────────────────
+  onHistStart(){document.getElementById('offload-bar').classList.add('show');setStatus('pdot-offload','lbl-offload','syncing','Syncing…');},
+  onHistRec(n){
+    document.getElementById('offload-fill').style.width=Math.min(96,n/500*100)+'%';
+    setStatus('pdot-offload','lbl-offload','syncing',`${n} records`);
+  },
+  onHistDone(n){
+    document.getElementById('offload-fill').style.width='100%';
+    setStatus('pdot-offload','lbl-offload','full',`${n} synced`);
+    setTimeout(()=>document.getElementById('offload-bar').classList.remove('show'),3000);
+  },
+
+  // ── HR DATA ───────────────────────────────────────────────────
+  onHR(ev){
+    const dv=ev.target.value,flags=dv.getUint8(0);
+    const f16=flags&1,hasEE=(flags>>3)&1;
+    let off=1;
+    const hr=f16?(off+=2,dv.getUint16(off-2,true)):dv.getUint8(off++);
+    if(hasEE)off+=2;
+    const rrs=[];
+    while(off+1<dv.byteLength){const raw=dv.getUint16(off,true);off+=2;const ms=Math.round((raw/1024)*1000);if(ms>200&&ms<3000)rrs.push(ms);}
+    this.pushHR(hr);
+    if(rrs.length)this.pushRR(rrs);
+  },
+
+  pushHR(hr){
+    S.hr=hr;anal.pushHR(hr);S.hrLog.push({ts:Date.now(),hr});
+    const circ=2*Math.PI*72;
+    const pct=Math.max(0,Math.min(1,(hr-40)/160));
+    const rf=document.getElementById('ring-fill');
+    rf.style.strokeDasharray=circ;rf.style.strokeDashoffset=circ*(1-pct);
+    rf.style.stroke=hr<90?'var(--accent)':hr<135?'var(--yellow)':'var(--red)';
+    document.getElementById('hr-num').textContent=hr;
+    document.getElementById('hr-num').style.color=hr>135?'var(--red)':'var(--text)';
+    const rw=document.getElementById('ring-wrap');rw.classList.remove('beating');void rw.offsetWidth;rw.classList.add('beating');
+    const hrs=S.hrLog.map(h=>h.hr);
+    document.getElementById('s-min').textContent=Math.min(...hrs);
+    document.getElementById('s-max').textContent=Math.max(...hrs);
+    document.getElementById('btn-export').disabled=false;
+    document.getElementById('m-strain').textContent=anal.strain.toFixed(1);
+    this.saveToDaily();
+  },
+
+  pushRR(rrs){
+    const now=Date.now();
+    rrs.forEach(rr=>{S.rrBuf.push({ts:now,rr});anal.pushRR(rr);});
+    while(S.rrBuf.length>600)S.rrBuf.shift();
+    const recent=S.rrBuf.slice(-10).map(r=>r.rr);
+    S.avgRR=recent.reduce((a,b)=>a+b,0)/recent.length;
+    document.getElementById('s-beats').textContent=S.rrBuf.length;
+    const dot=document.getElementById('rr-dot');dot.classList.add('on');setTimeout(()=>dot.classList.remove('on'),220);
+    document.getElementById('ecg-rr').textContent=`${rrs[rrs.length-1]}ms R-R`;
+    const hrv=anal.rmssd,rec=anal.recovery;
+    if(hrv!==null)document.getElementById('m-hrv').textContent=Math.round(hrv);
+    if(rec!==null){const el=document.getElementById('m-rec');el.textContent=rec;el.style.color=rec>66?'var(--accent)':rec>33?'var(--yellow)':'var(--red)';}
+    else document.getElementById('m-rec').textContent='…';
+    // Respiration estimate
+    const resp=anal.estimateResp();
+    if(resp!==null)document.getElementById('m-resp').textContent=resp.toFixed(1);
+    // Update HRV panel if it's visible
+    if(document.getElementById('panel-hrv').classList.contains('active'))HRVPanel.update(S.rrBuf);
+  },
+
+  // _readBattery: safe delayed/periodic read of 0x2A19
+  async _readBattery(){
+    if(!S.live||!S._batChar)return;
+    try{const v=await S._batChar.readValue();this.setBattery(v.getUint8(0));}catch{}
+  },
+
+  setBattery(raw){
+    // Ignore out-of-range values (0x2A19 can return 0 or garbage at connect time)
+    if(raw<1||raw>100)return;
+    // Guard against stale low reads: if we have a recent reading > 20%
+    // and the new value is suspiciously low (< 5%), treat it as a bad sample
+    if(S._lastBatPct!==null&&S._lastBatPct>20&&raw<5)return;
+    S._lastBatPct=raw;
+    const el=document.getElementById('m-bat');
+    el.textContent=raw;
+    el.style.color=raw<20?'var(--red)':raw<40?'var(--yellow)':'var(--text)';
+  },
+
+  setSpo2(pct,src){
+    const el=document.getElementById('m-spo2');
+    el.textContent=pct;
+    el.style.color=pct<93?'var(--red)':pct<95?'var(--yellow)':'var(--text)';
+    if(src)setSource('spo2-src',src);
+  },
+
+  // ── SLEEP EPOCH (runs every 30s) ──────────────────────────────
+  startEpochTimer(){
+    this.stopEpochTimer();
+    epochTimer=setInterval(()=>{
+      if(!S.live||S.hr===0)return;
+      const hrv=anal.rmssd;
+      const stage=stager.addEpoch(S.hr,hrv);
+      this.updateSleepUI(stage);
+    },30000);
+  },
+  stopEpochTimer(){clearInterval(epochTimer);epochTimer=null;},
+
+  updateSleepUI(stage){
+    const isAsleep=stager.isAsleep;
+    const banner=document.getElementById('sleep-banner');
+    const hypnoMini=document.getElementById('hypno-mini');
+    const sleepBadge=document.getElementById('sleep-badge');
+    const lbl=document.getElementById('lbl-sleep');
+
+    if(isAsleep){
+      banner.classList.add('show');
+      hypnoMini.classList.add('show');
+      sleepBadge.style.display='';
+      lbl.textContent=stage.charAt(0).toUpperCase()+stage.slice(1);
+
+      const pill=document.getElementById('live-stage-pill');
+      pill.className=`sleep-stage-pill ${stage}`;
+      pill.textContent={wake:'Awake',light:'Light Sleep',deep:'Deep Sleep',rem:'REM Sleep'}[stage]||stage;
+
+      const asleepMs=stager.asleepDurationMs;
+      const h=Math.floor(asleepMs/3600000),m=Math.floor((asleepMs%3600000)/60000);
+      document.getElementById('live-sleep-dur').textContent=`${h}h ${m}m`;
+
+      const sum=stager.summary;
+      if(sum)document.getElementById('live-sleep-eff').textContent=sum.efficiency+'%';
+
+      // Mini hypnogram
+      new Hypnogram(hypnoMini,{t:2,r:4,b:2,l:4}).render(stager.epochs);
+    }else{
+      banner.classList.remove('show');
+      hypnoMini.classList.remove('show');
+      lbl.textContent='Awake';
+    }
+  },
+
+  // ── PERSISTENCE ───────────────────────────────────────────────
+  _st:null,
+  saveToDaily(){
+    if(this._st)return;
+    this._st=setTimeout(async()=>{
+      this._st=null;
+      const today=new Date().toISOString().slice(0,10);
+      const existing=(await db.getAll('daily')).find(r=>r.date===today)||{};
+      await db.put('daily',{...existing,date:today,hrv:anal.rmssd?Math.round(anal.rmssd):existing.hrv??null,recovery:anal.recovery??existing.recovery??null,strain:anal.strain,minHR:anal.minHR,maxHR:anal.maxHR,avgHR:anal.avgHR});
+    },6000);
+  },
+  async saveSessionEnd(){
+    if(!S.sessId)return;
+    const sum=stager.summary;
+    await db.put('sessions',{id:S.sessId,startTs:S.sessStart,endTs:Date.now(),device:S.device?.name||'WHOOP',duration:Math.floor((Date.now()-S.sessStart)/1000),minHR:anal.minHR,maxHR:anal.maxHR,avgHR:anal.avgHR,hrv:anal.rmssd?Math.round(anal.rmssd):null,recovery:anal.recovery,strain:anal.strain,samples:S.hrLog.length,...(sum?{sleep:sum}:{})});
+    // Save sleep data if any sleep was detected
+    if(sum&&stager.epochs.length>4){
+      const today=new Date().toISOString().slice(0,10);
+      await db.put('sleep',{date:today,...sum,epochs:stager.epochs.slice(0,500)});
+    }
+  },
+
+  // ── DURATION TIMER ────────────────────────────────────────────
+  startDurationTimer(){this.stopDurationTimer();durTimer=setInterval(()=>{const e=Math.floor((Date.now()-S.sessStart)/1000);document.getElementById('s-dur').textContent=`${Math.floor(e/60)}:${String(e%60).padStart(2,'0')}`;},1000);},
+  stopDurationTimer(){clearInterval(durTimer);durTimer=null;},
+
+  // ── TRENDS ────────────────────────────────────────────────────
+  setRange(days){trendRange=days;document.querySelectorAll('[data-days]').forEach(b=>b.classList.toggle('active',parseInt(b.dataset.days)===days));this.loadTrends();},
+
+  async loadTrends(){
+    const daily=await db.getDailyRange(trendRange);
+    const sessions=await db.getAll('sessions');
+    const has=daily.length>0;
+    document.getElementById('trends-empty').style.display=has?'none':'';
+    document.getElementById('trends-charts').style.display=has?'block':'none';
+    if(!has)return;
+    const xFmt=d=>d.slice(5);
+    const avg=(arr,k)=>{const v=arr.filter(d=>d[k]!=null).map(d=>d[k]);return v.length?Math.round(v.reduce((a,b)=>a+b,0)/v.length):null;};
+    const charts=[
+      {id:'c-hrv', key:'hrv',     color:'#4D9EFF',avgId:'t-hrv-avg',unit:'ms', fill:true, bars:false},
+      {id:'c-rec', key:'recovery',color:'#00E5A0',avgId:'t-rec-avg',unit:'',   fill:true, bars:false},
+      {id:'c-rhr', key:'minHR',   color:'#7B8FA8',avgId:'t-rhr-avg',unit:'bpm',fill:false,bars:false},
+      {id:'c-spo2',key:'spo2',    color:'#FFD166',avgId:'t-spo2-avg',unit:'%',fill:false, bars:false,min:90,max:100},
+      {id:'c-str', key:'strain',  color:'#FF4D6A',avgId:'t-str-avg',unit:'',   fill:false,bars:true},
+    ];
+    charts.forEach(cfg=>{
+      const pts=daily.filter(d=>d[cfg.key]!=null).map(d=>({x:d.date,y:d[cfg.key]}));
+      const cv=document.getElementById(cfg.id);if(!cv)return;
+      new TrendChart(cv).render(pts,{color:cfg.color,fill:cfg.fill,bars:cfg.bars,xFmt,min:cfg.min,max:cfg.max});
+      const a=avg(daily,cfg.key);
+      document.getElementById(cfg.avgId).textContent=a!=null?`avg ${a}${cfg.unit}`:'';
+    });
+    // Session list
+    const items=document.getElementById('sess-items');items.innerHTML='';
+    sessions.slice().reverse().slice(0,12).forEach(sess=>{
+      if(!sess.startTs)return;
+      const d=new Date(sess.startTs);
+      const dateStr=d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+      const timeStr=d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+      const dur=sess.duration?`${Math.floor(sess.duration/60)}m`:'';
+      const el=document.createElement('div');el.className='sess-item';
+      el.innerHTML=`<div><div class="sess-date">${dateStr} · ${timeStr}</div><div class="sess-meta">${sess.device||'WHOOP'}${dur?' · '+dur:''}</div></div><div style="display:flex;gap:6px;flex-wrap:wrap">${sess.hrv?`<span class="badge blue">${sess.hrv}ms</span>`:''} ${sess.recovery?`<span class="badge green">R:${sess.recovery}</span>`:''} ${sess.strain?`<span class="badge red">S:${sess.strain}</span>`:''} ${sess.sleep?`<span class="badge purple">😴</span>`:''}</div>`;
+      items.appendChild(el);
+    });
+  },
+
+  // ── SLEEP PANEL ───────────────────────────────────────────────
+  setSleepRange(days){sleepRange=days;this.loadSleep();},
+
+  async loadSleep(){
+    const sleeps=await db.getSleepRange(sleepRange);
+    const has=sleeps.length>0;
+    document.getElementById('sleep-empty').style.display=has?'none':'';
+    document.getElementById('sleep-content').style.display=has?'block':'none';
+    if(!has)return;
+
+    // Last sleep summary
+    const last=sleeps[sleeps.length-1];
+    if(last){
+      const date=new Date(last.date);
+      document.getElementById('ls-date').textContent=date.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+      const h=last.totalMins?Math.floor(last.totalMins/60):null;
+      const m=last.totalMins?last.totalMins%60:null;
+      document.getElementById('ls-total').textContent=h!=null?`${h}h ${m}m`:'—';
+      if(last.fromTs&&last.toTs){
+        const f=new Date(last.fromTs).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+        const t=new Date(last.toTs).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+        document.getElementById('ls-range').textContent=`${f} – ${t}`;
+      }
+      document.getElementById('ls-eff').textContent=(last.efficiency??'—')+'%';
+
+      // Stage bar
+      const inBed=last.inBedMins||last.totalMins||1;
+      const segs=[
+        {id:'seg-wake', pct:last.wake??0},
+        {id:'seg-light',pct:last.light??0},
+        {id:'seg-deep', pct:last.deep??0},
+        {id:'seg-rem',  pct:last.rem??0},
+      ];
+      segs.forEach(s=>{const el=document.getElementById(s.id);if(el)el.style.flex=s.pct;});
+      document.getElementById('pct-wake').textContent= `${last.wake??'—'}%`;
+      document.getElementById('pct-light').textContent=`${last.light??'—'}%`;
+      document.getElementById('pct-deep').textContent= `${last.deep??'—'}%`;
+      document.getElementById('pct-rem').textContent=  `${last.rem??'—'}%`;
+
+      // Stat cards
+      const fmt=m=>m!=null?`${Math.floor(m/60)}h ${m%60}m`:'—';
+      document.getElementById('ss-deep').textContent=fmt(last.deepMins);
+      document.getElementById('ss-rem').textContent= fmt(last.remMins);
+      document.getElementById('ss-latency').textContent=last.latency!=null?`${Math.round(last.latency)}m`:'—';
+      document.getElementById('ss-disruptions').textContent=last.disruptions??'—';
+
+      // Hypnogram (from epochs if available, else synthetic from stage pcts)
+      const hcv=document.getElementById('hypno-full');
+      if(last.epochs&&last.epochs.length){
+        new Hypnogram(hcv).render(last.epochs);
+      }else if(last.fromTs&&last.totalMins){
+        // Build synthetic epochs from stage percentages
+        const epochs=this._syntheticEpochs(last);
+        new Hypnogram(hcv).render(epochs);
+      }
+    }
+
+    // Trend charts
+    const xFmt=d=>d.slice(5);
+    const dur=sleeps.filter(s=>s.totalMins).map(s=>({x:s.date,y:Math.round(s.totalMins/60*10)/10}));
+    new TrendChart(document.getElementById('c-sleep')).render(dur,{color:'#9D6EFF',fill:true,xFmt,yFmt:v=>v+'h'});
+    const a1=dur.length?Math.round(dur.reduce((a,b)=>a+b.y,0)/dur.length*10)/10:null;
+    document.getElementById('t-sleep-avg').textContent=a1!=null?`avg ${a1}h`:'';
+
+    const eff=sleeps.filter(s=>s.efficiency).map(s=>({x:s.date,y:s.efficiency}));
+    new TrendChart(document.getElementById('c-eff')).render(eff,{color:'#00E5A0',fill:true,xFmt,yFmt:v=>v+'%',min:0,max:100});
+    const a2=eff.length?Math.round(eff.reduce((a,b)=>a+b.y,0)/eff.length):null;
+    document.getElementById('t-eff-avg').textContent=a2!=null?`avg ${a2}%`:'';
+
+    const resp=sleeps.filter(s=>s.resp).map(s=>({x:s.date,y:s.resp}));
+    new TrendChart(document.getElementById('c-resp')).render(resp,{color:'#4D9EFF',fill:false,xFmt});
+    const a3=resp.length?Math.round(resp.reduce((a,b)=>a+b.y,0)/resp.length*10)/10:null;
+    document.getElementById('t-resp-avg').textContent=a3!=null?`avg ${a3}br/min`:'';
+  },
+
+  _syntheticEpochs(sleep){
+    // Build representative hypnogram from stage percentages
+    // Order: Wake → Light → Deep → (repeat) → REM → Light → Wake
+    const start=sleep.fromTs?new Date(sleep.fromTs).getTime():Date.now()-(sleep.totalMins||360)*60000;
+    const totalMs=(sleep.totalMins||360)*60000;
+    const epochMs=30000;
+    const n=Math.round(totalMs/epochMs);
+    const pcts={wake:(sleep.wake||5)/100,light:(sleep.light||50)/100,deep:(sleep.deep||20)/100,rem:(sleep.rem||25)/100};
+
+    // Simplified pattern: Wake(5%) → Light→Deep cycles → REM → Light → Wake
+    const epochs=[];
+    for(let i=0;i<n;i++){
+      const t=i/n;
+      let stage;
+      if(t<0.05) stage='wake';
+      else if(t<0.15) stage='light';
+      else if(t<0.30) stage='deep';
+      else if(t<0.45) stage='light';
+      else if(t<0.55) stage='deep';
+      else if(t<0.65) stage='light';
+      else if(t<0.85) stage='rem';
+      else if(t<0.95) stage='light';
+      else stage='wake';
+      epochs.push({ts:start+i*epochMs,stage,hr:0,hrv:0});
+    }
+    return epochs;
+  },
+
+  // ── IMPORT ────────────────────────────────────────────────────
+  setImportMode(mode){
+    importMode=mode;
+    document.getElementById('dt-cycles').classList.toggle('active',mode==='cycles');
+    document.getElementById('dt-sleeps').classList.toggle('active',mode==='sleeps');
+    document.getElementById('drop-h').textContent=mode==='cycles'?'Drop physiological_cycles.csv':'Drop sleeps.csv';
+  },
+
+  handleFile(file){
+    if(!file)return;
+    document.getElementById('imp-progress').classList.add('show');
+    document.getElementById('imp-result').classList.remove('show');
+    document.getElementById('imp-status').textContent='Reading…';
+    document.getElementById('imp-bar').style.width='10%';
+    const reader=new FileReader();
+    reader.onload=async e=>{
+      document.getElementById('imp-bar').style.width='40%';
+      document.getElementById('imp-status').textContent='Parsing…';
+      await wait(40);
+      try{
+        let rows,count=0;
+        if(importMode==='cycles'){
+          rows=importer.parseCycles(e.target.result);
+          document.getElementById('imp-bar').style.width='70%';
+          for(const r of rows){
+            await db.put('daily',{date:r.date,hrv:r.hrv,recovery:r.recovery,strain:r.strain,minHR:r.rhr,spo2:r.spo2,resp:r.resp});
+            count++;
+          }
+        }else{
+          rows=importer.parseSleeps(e.target.result);
+          document.getElementById('imp-bar').style.width='70%';
+          for(const r of rows){
+            await db.put('sleep',{date:r.date,totalMins:r.totalMins,inBedMins:r.inBedMins,efficiency:r.efficiency,wake:r.wake,light:r.light,deep:r.deep,rem:r.rem,deepMins:r.deepMins,remMins:r.remMins,disruptions:r.disruptions,latency:r.latency,resp:r.resp,fromTs:r.fromTs?new Date(r.fromTs).getTime():null,toTs:r.toTs?new Date(r.toTs).getTime():null});
+            count++;
+          }
+        }
+        document.getElementById('imp-bar').style.width='100%';
+        document.getElementById('imp-sum').innerHTML=`<b>${count}</b> records imported.`;
+        const dates=rows.map(r=>r.date).sort();
+        document.getElementById('imp-range').textContent=dates.length?`${dates[0]}  →  ${dates[dates.length-1]}`:'';
+        document.getElementById('imp-result').classList.add('show');
+        showNotice('info',`✓ ${count} ${importMode} records imported.`);
+      }catch(err){showNotice('error','Import failed: '+err.message);}
+    };
+    reader.readAsText(file);
+  },
+
+  // ── CSV EXPORT ────────────────────────────────────────────────
+  exportCSV(){
+    if(!S.hrLog.length)return;
+    const rows=['timestamp_utc,hr_bpm,rr_ms,rmssd_ms,recovery,strain,spo2_pct,resp_brpm,battery_pct'];
+    S.hrLog.forEach(({ts,hr})=>{
+      const rr=S.rrBuf.find(r=>Math.abs(r.ts-ts)<1500)?.rr||'';
+      rows.push([new Date(ts).toISOString(),hr,rr,anal.rmssd?Math.round(anal.rmssd):'',anal.recovery??'',anal.strain,document.getElementById('m-spo2').textContent,document.getElementById('m-resp').textContent,document.getElementById('m-bat').textContent].join(','));
+    });
+    const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(new Blob([rows.join('\n')],{type:'text/csv'})),download:`openstrap_${new Date().toISOString().slice(0,10)}.csv`});
+    a.click();URL.revokeObjectURL(a.href);
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// UI HELPERS
+// ═══════════════════════════════════════════════════════════════════
+function setBeacon(m){const el=document.getElementById('beacon');el.className='beacon'+(m?' '+m:'');}
+function setStatus(dotId,lblId,mode,label){
+  const dot=document.getElementById(dotId),lbl=document.getElementById(lblId);
+  dot.className='pdot'+(mode?' '+mode:'');lbl.textContent=label;
+}
+function setSource(id,src){const el=document.getElementById(id);if(el)el.textContent=src;}
+function clearNotices(){['n-error','n-info'].forEach(id=>{const el=document.getElementById(id);el.classList.remove('show');el.textContent='';});}
+function showNotice(type,msg){const id=type==='error'?'n-error':'n-info';const el=document.getElementById(id);el.textContent=msg;el.classList.add('show');}
+function wait(ms){return new Promise(r=>setTimeout(r,ms));}
+
+// ═══════════════════════════════════════════════════════════════════
+// HRV MATHEMATICS
+// Task Force 1996: RMSSD, SDNN, pNN50, SD1, SD2
+// Poincaré geometry; LF/HF via Welch-approximated FFT
+// ═══════════════════════════════════════════════════════════════════
+function hrv_rmssd(rrs) {
+  if (rrs.length < 2) return null;
+  let s = 0; for (let i=1;i<rrs.length;i++){const d=rrs[i]-rrs[i-1];s+=d*d;}
+  return Math.sqrt(s/(rrs.length-1));
+}
+function hrv_sdnn(rrs) {
+  if (rrs.length < 2) return null;
+  const m = rrs.reduce((a,b)=>a+b,0)/rrs.length;
+  return Math.sqrt(rrs.reduce((a,b)=>a+(b-m)**2,0)/rrs.length);
+}
+function hrv_pnn50(rrs) {
+  if (rrs.length < 2) return null;
+  let c=0; for(let i=1;i<rrs.length;i++) if(Math.abs(rrs[i]-rrs[i-1])>50)c++;
+  return Math.round(c/(rrs.length-1)*1000)/10;
+}
+function hrv_sd1(rrs) {
+  const rm=hrv_rmssd(rrs); return rm?Math.round(rm/Math.sqrt(2)*10)/10:null;
+}
+function hrv_sd2(rrs) {
+  if(rrs.length<2)return null;
+  const sdnn=hrv_sdnn(rrs),rmssd=hrv_rmssd(rrs);
+  if(!sdnn||!rmssd)return null;
+  const v=2*sdnn**2-0.5*rmssd**2;
+  return v>0?Math.round(Math.sqrt(v)*10)/10:sdnn;
+}
+
+// Iterative in-place Cooley-Tukey FFT (power-of-2 input)
+function fft_inplace(re,im){
+  const n=re.length;
+  // Bit-reversal
+  for(let i=1,j=0;i<n;i++){
+    let bit=n>>1;
+    for(;j&bit;bit>>=1)j^=bit;
+    j^=bit;
+    if(i<j){[re[i],re[j]]=[re[j],re[i]];[im[i],im[j]]=[im[j],im[i]];}
+  }
+  // Butterfly
+  for(let len=2;len<=n;len<<=1){
+    const ang=-2*Math.PI/len,wr=Math.cos(ang),wi=Math.sin(ang);
+    for(let i=0;i<n;i+=len){
+      let cr=1,ci=0;
+      for(let k=0;k<len/2;k++){
+        const ur=re[i+k],ui=im[i+k];
+        const vr=re[i+k+len/2]*cr-im[i+k+len/2]*ci;
+        const vi=re[i+k+len/2]*ci+im[i+k+len/2]*cr;
+        re[i+k]=ur+vr;im[i+k]=ui+vi;
+        re[i+k+len/2]=ur-vr;im[i+k+len/2]=ui-vi;
+        [cr,ci]=[cr*wr-ci*wi,cr*wi+ci*wr];
+      }
+    }
+  }
+}
+function nextPow2(n){let p=1;while(p<n)p<<=1;return p;}
+
+function computeLFHF(rrBuf){
+  // Need at least 120 R-R pairs (~2 min) for meaningful LF/HF
+  const buf=rrBuf.slice(-512);
+  if(buf.length<60)return null;
+  const rrs=buf.map(r=>r.rr);
+  // Build cumulative timestamps (ms)
+  const ts=[0];
+  for(let i=1;i<rrs.length;i++)ts.push(ts[i-1]+rrs[i-1]);
+  const totalMs=ts[ts.length-1];
+  if(totalMs<30000)return null; // need at least 30s
+  // Resample at 4 Hz
+  const SR=4,nS=Math.floor(totalMs*SR/1000);
+  const sig=new Float64Array(nS);
+  let j=0;
+  for(let i=0;i<nS;i++){
+    const t=i/SR*1000;
+    while(j<ts.length-2&&ts[j+1]<t)j++;
+    const a=(t-ts[j])/(ts[j+1]-ts[j]||1);
+    sig[i]=rrs[j]+a*(rrs[j+1]-rrs[j]);
+  }
+  // Detrend (remove mean)
+  const mu=Array.from(sig).reduce((a,b)=>a+b,0)/nS;
+  for(let i=0;i<nS;i++)sig[i]-=mu;
+  // Hann window
+  for(let i=0;i<nS;i++)sig[i]*=0.5*(1-Math.cos(2*Math.PI*i/(nS-1)));
+  // Zero-pad to next power of 2
+  const N=nextPow2(nS);
+  const re=new Float64Array(N),im=new Float64Array(N);
+  for(let i=0;i<nS;i++)re[i]=sig[i];
+  fft_inplace(re,im);
+  // Power spectrum + band integration
+  const freqRes=SR/N;
+  let lf=0,hf=0;
+  const spectrum=[];
+  for(let k=1;k<N/2;k++){
+    const freq=k*freqRes;
+    const pwr=(re[k]**2+im[k]**2)*2/N/N; // two-sided → one-sided, normalize
+    spectrum.push({freq,pwr});
+    if(freq>=0.04&&freq<0.15)lf+=pwr*freqRes;
+    if(freq>=0.15&&freq<0.40)hf+=pwr*freqRes;
+  }
+  return{
+    lf:Math.round(lf),hf:Math.round(hf),
+    lfhf:hf>0?Math.round(lf/hf*100)/100:null,
+    spectrum:spectrum.filter(p=>p.freq<=0.45),
+    durationSec:Math.round(totalMs/1000),
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// POINCARÉ PLOT
+// ═══════════════════════════════════════════════════════════════════
+class PoincarePlot {
+  constructor(cv){this.cv=cv;this.cx=cv.getContext('2d');}
+
+  render(rrs){
+    const dpr=window.devicePixelRatio||1;
+    const sz=this.cv.offsetWidth; // square
+    this.cv.width=sz*dpr;this.cv.height=sz*dpr;
+    const cx=this.cx;cx.setTransform(dpr,0,0,dpr,0,0);
+    const W=sz,H=sz;
+    cx.clearRect(0,0,W,H);
+
+    if(rrs.length<4){
+      cx.fillStyle='#7B8FA8';cx.font='11px Inter';cx.textAlign='center';
+      cx.fillText('Awaiting R-R data…',W/2,H/2);return;
+    }
+
+    const pad={t:28,r:16,b:36,l:48};
+    const pw=W-pad.l-pad.r,ph=H-pad.t-pad.b;
+
+    // Axis range: mean ± 180ms, clamp to 350–1300ms
+    const mean=rrs.reduce((a,b)=>a+b,0)/rrs.length;
+    const margin=Math.max(100,hrv_sdnn(rrs)*3||120);
+    const lo=Math.max(350,mean-margin),hi=Math.min(1300,mean+margin);
+    const rng=hi-lo;
+
+    const px=v=>pad.l+(v-lo)/rng*pw;
+    const py=v=>H-pad.b-(v-lo)/rng*ph;
+
+    // Grid
+    cx.strokeStyle='rgba(30,46,70,0.9)';cx.lineWidth=0.5;
+    for(let v=Math.ceil(lo/50)*50;v<=hi;v+=100){
+      cx.beginPath();cx.moveTo(px(v),pad.t);cx.lineTo(px(v),H-pad.b);cx.stroke();
+      cx.beginPath();cx.moveTo(pad.l,py(v));cx.lineTo(W-pad.r,py(v));cx.stroke();
+    }
+
+    // Axis labels
+    cx.font='9px JetBrains Mono';cx.fillStyle='#7B8FA8';
+    cx.textAlign='center';
+    [lo,mean,hi].forEach(v=>cx.fillText(Math.round(v),px(v),H-pad.b+14));
+    cx.textAlign='right';
+    [lo,mean,hi].forEach(v=>cx.fillText(Math.round(v),pad.l-5,py(v)+3));
+    cx.fillStyle='#5A6B7F';cx.font='9px Inter';
+    cx.textAlign='center';cx.fillText('RRn (ms)',W/2,H-4);
+    cx.save();cx.translate(12,H/2);cx.rotate(-Math.PI/2);cx.fillText('RRn+1 (ms)',0,0);cx.restore();
+
+    // Identity line (y=x)
+    cx.strokeStyle='rgba(123,143,168,.22)';cx.lineWidth=1;cx.setLineDash([5,5]);
+    cx.beginPath();cx.moveTo(px(lo),py(lo));cx.lineTo(px(hi),py(hi));cx.stroke();
+    cx.setLineDash([]);
+
+    // SD1/SD2 ellipse
+    const sd1=hrv_sd1(rrs)||0,sd2=hrv_sd2(rrs)||0;
+    if(sd1>0&&sd2>0){
+      const cx_e=px(mean),cy_e=py(mean);
+      const sd1px=sd1/rng*pw*Math.SQRT2; // perpendicular → screen px
+      const sd2px=sd2/rng*pw*Math.SQRT2; // along identity line
+      cx.save();cx.translate(cx_e,cy_e);cx.rotate(-Math.PI/4);
+      cx.beginPath();cx.ellipse(0,0,sd2px,sd1px,0,0,Math.PI*2);
+      cx.fillStyle='rgba(0,229,160,0.06)';cx.fill();
+      cx.strokeStyle='rgba(0,229,160,0.35)';cx.lineWidth=1.5;cx.stroke();
+      // SD1 axis label (perpendicular)
+      cx.fillStyle='rgba(0,229,160,0.7)';cx.font='8px JetBrains Mono';
+      cx.textAlign='center';cx.fillText(`SD1 ${Math.round(sd1)}`,0,-sd1px-6);
+      // SD2 axis label (along)
+      cx.textAlign='left';cx.fillText(`SD2 ${Math.round(sd2)}`,sd2px+4,4);
+      cx.restore();
+    }
+
+    // Scatter: pairs (RRn, RRn+1)
+    const pairs=[];
+    for(let i=0;i<rrs.length-1;i++)pairs.push([rrs[i],rrs[i+1]]);
+    const n=pairs.length;
+    pairs.forEach(([x,y],i)=>{
+      const isLast=(i===n-1);
+      const alpha=0.15+((i/n)**1.5)*0.85;
+      cx.beginPath();
+      cx.arc(px(x),py(y),isLast?4.5:2,0,Math.PI*2);
+      cx.fillStyle=isLast?'#00E5A0':`rgba(77,158,255,${alpha})`;
+      if(isLast){cx.shadowColor='rgba(0,229,160,0.6)';cx.shadowBlur=8;}
+      cx.fill();cx.shadowBlur=0;
+    });
+
+    // Centre dot (mean, mean)
+    cx.beginPath();cx.arc(px(mean),py(mean),3,0,Math.PI*2);
+    cx.fillStyle='rgba(255,209,102,0.7)';cx.fill();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// FREQUENCY DOMAIN PLOT
+// ═══════════════════════════════════════════════════════════════════
+class FreqPlot {
+  constructor(cv){this.cv=cv;this.cx=cv.getContext('2d');}
+
+  render(result){
+    const dpr=window.devicePixelRatio||1;
+    const W=this.cv.offsetWidth,H=this.cv.offsetHeight||172;
+    this.cv.width=W*dpr;this.cv.height=H*dpr;
+    const cx=this.cx;cx.setTransform(dpr,0,0,dpr,0,0);
+    cx.clearRect(0,0,W,H);
+
+    const pad={t:14,r:12,b:30,l:44};
+    const pw=W-pad.l-pad.r,ph=H-pad.t-pad.b;
+
+    if(!result||!result.spectrum||!result.spectrum.length){
+      // Waiting state — draw empty axes
+      cx.strokeStyle='rgba(30,46,70,.7)';cx.lineWidth=0.5;
+      [0,.25,.5,.75,1].forEach(f=>{const y=pad.t+f*ph;cx.beginPath();cx.moveTo(pad.l,y);cx.lineTo(W-pad.r,y);cx.stroke();});
+      cx.font='10px Inter';cx.fillStyle='#7B8FA8';cx.textAlign='center';
+      cx.fillText('Need ~2 min of R-R data',W/2,H/2+2);
+      // Band markers
+      this._drawBandMarkers(cx,pad,pw,ph,W,H,[0,0.04,0.15,0.40,0.45]);
+      return;
+    }
+
+    const spec=result.spectrum;
+    const maxPwr=Math.max(...spec.map(p=>p.pwr));
+    const maxFreq=0.45;
+
+    // Grid
+    cx.strokeStyle='rgba(30,46,70,.85)';cx.lineWidth=0.5;
+    [0,.25,.5,.75,1].forEach(f=>{const y=pad.t+f*ph;cx.beginPath();cx.moveTo(pad.l,y);cx.lineTo(W-pad.r,y);cx.stroke();});
+
+    // Freq axis ticks
+    cx.font='9px JetBrains Mono';cx.fillStyle='#7B8FA8';cx.textAlign='center';
+    [0,0.1,0.2,0.3,0.4].forEach(f=>{
+      const x=pad.l+(f/maxFreq)*pw;
+      cx.fillText(f.toFixed(1),x,H-pad.b+13);
+    });
+    cx.fillText('Hz',W-pad.r,H-pad.b+13);
+
+    // Y axis
+    cx.textAlign='right';
+    cx.fillText(Math.round(maxPwr)+'ms²',pad.l-4,pad.t+8);
+    cx.fillText('0',pad.l-4,H-pad.b+4);
+
+    // Band fills
+    const toX=f=>pad.l+(Math.min(f,maxFreq)/maxFreq)*pw;
+    const toY=p=>pad.t+(1-Math.min(p/maxPwr,1))*ph;
+
+    // VLF (0–0.04): gray
+    this._fillBand(cx,spec,0,0.04,'rgba(123,143,168,0.12)',toX,toY,pad,ph);
+    // LF (0.04–0.15): blue
+    this._fillBand(cx,spec,0.04,0.15,'rgba(77,158,255,0.25)',toX,toY,pad,ph);
+    // HF (0.15–0.4): green
+    this._fillBand(cx,spec,0.15,0.40,'rgba(0,229,160,0.22)',toX,toY,pad,ph);
+
+    // Full spectrum line
+    cx.beginPath();cx.strokeStyle='rgba(123,143,168,0.6)';cx.lineWidth=1;
+    spec.forEach((p,i)=>{const x=toX(p.freq),y=toY(p.pwr);i?cx.lineTo(x,y):cx.moveTo(x,y);});
+    cx.stroke();
+
+    // Band boundary lines
+    this._drawBandMarkers(cx,pad,pw,ph,W,H,[0.04,0.15,0.40]);
+
+    // Band labels
+    cx.font='9px Inter';cx.textAlign='center';
+    cx.fillStyle='rgba(77,158,255,0.8)';cx.fillText('LF',toX(0.095),pad.t+12);
+    cx.fillStyle='rgba(0,229,160,0.8)';cx.fillText('HF',toX(0.275),pad.t+12);
+    cx.fillStyle='rgba(123,143,168,0.6)';cx.fillText('VLF',toX(0.02),pad.t+12);
+  }
+
+  _fillBand(cx,spec,f1,f2,color,toX,toY,pad,ph){
+    const pts=spec.filter(p=>p.freq>=f1&&p.freq<=f2);
+    if(!pts.length)return;
+    cx.beginPath();cx.moveTo(toX(pts[0].freq),pad.t+ph);
+    pts.forEach(p=>cx.lineTo(toX(p.freq),toY(p.pwr)));
+    cx.lineTo(toX(pts[pts.length-1].freq),pad.t+ph);
+    cx.closePath();cx.fillStyle=color;cx.fill();
+  }
+
+  _drawBandMarkers(cx,pad,pw,ph,W,H,freqs){
+    const maxF=0.45;
+    cx.strokeStyle='rgba(123,143,168,0.2)';cx.lineWidth=0.8;cx.setLineDash([3,3]);
+    freqs.forEach(f=>{const x=pad.l+(f/maxF)*pw;cx.beginPath();cx.moveTo(x,pad.t);cx.lineTo(x,H-pad.b);cx.stroke();});
+    cx.setLineDash([]);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// R-R TACHOGRAM (scrolling time-series)
+// ═══════════════════════════════════════════════════════════════════
+class Tachogram {
+  constructor(cv){this.cv=cv;this.cx=cv.getContext('2d');}
+
+  render(rrBuf){
+    const dpr=window.devicePixelRatio||1;
+    const W=this.cv.offsetWidth,H=this.cv.offsetHeight||88;
+    this.cv.width=W*dpr;this.cv.height=H*dpr;
+    const cx=this.cx;cx.setTransform(dpr,0,0,dpr,0,0);
+    cx.clearRect(0,0,W,H);
+
+    const now=Date.now();
+    const win=rrBuf.filter(r=>now-r.ts<60000);
+    const pad={t:10,r:14,b:22,l:44};
+    const pw=W-pad.l-pad.r,ph=H-pad.t-pad.b;
+
+    // Grid
+    cx.strokeStyle='rgba(30,46,70,.85)';cx.lineWidth=0.5;
+    [0,.5,1].forEach(f=>{const y=pad.t+f*ph;cx.beginPath();cx.moveTo(pad.l,y);cx.lineTo(W-pad.r,y);cx.stroke();});
+    [0,.25,.5,.75,1].forEach(f=>{const x=pad.l+f*pw;cx.beginPath();cx.moveTo(x,pad.t);cx.lineTo(x,H-pad.b);cx.stroke();});
+
+    if(win.length<2){
+      cx.fillStyle='#7B8FA8';cx.font='10px Inter';cx.textAlign='center';
+      cx.fillText('Awaiting data…',W/2,H/2+4);return;
+    }
+
+    const rrs=win.map(r=>r.rr);
+    const mn=Math.min(...rrs),mx=Math.max(...rrs),rng=Math.max(mx-mn,60);
+    const lo=mn-rng*.1,hi=mx+rng*.1;
+
+    // Y labels
+    cx.font='9px JetBrains Mono';cx.fillStyle='#7B8FA8';cx.textAlign='right';
+    [lo,lo+(hi-lo)/2,hi].forEach(v=>cx.fillText(Math.round(v),pad.l-5,pad.t+(1-(v-lo)/(hi-lo))*ph+3));
+
+    // Time labels
+    cx.textAlign='center';
+    cx.fillText('60s ago',pad.l,H-pad.b+13);
+    cx.fillText('now',W-pad.r,H-pad.b+13);
+
+    // Stepped line (each R-R interval shown as a horizontal level then vertical drop)
+    const step=pw/(win.length-1||1);
+
+    // Glow
+    cx.beginPath();cx.strokeStyle='rgba(77,158,255,0.15)';cx.lineWidth=6;cx.lineJoin='round';
+    win.forEach((r,i)=>{const x=pad.l+i*step,y=pad.t+(1-(r.rr-lo)/(hi-lo))*ph;i?cx.lineTo(x,y):cx.moveTo(x,y);});
+    cx.stroke();
+
+    // Main line
+    cx.beginPath();cx.strokeStyle='#4D9EFF';cx.lineWidth=1.8;cx.lineJoin='round';
+    win.forEach((r,i)=>{const x=pad.l+i*step,y=pad.t+(1-(r.rr-lo)/(hi-lo))*ph;i?cx.lineTo(x,y):cx.moveTo(x,y);});
+    cx.stroke();
+
+    // Fill under line
+    const lastX=pad.l+(win.length-1)*step;
+    cx.lineTo(lastX,H-pad.b);cx.lineTo(pad.l,H-pad.b);cx.closePath();
+    cx.fillStyle='rgba(77,158,255,0.08)';cx.fill();
+
+    // Latest point
+    const lrr=rrs[rrs.length-1];
+    const lx=lastX,ly=pad.t+(1-(lrr-lo)/(hi-lo))*ph;
+    cx.beginPath();cx.arc(lx,ly,3.5,0,Math.PI*2);cx.fillStyle='#4D9EFF';cx.fill();
+    cx.font='9px JetBrains Mono';cx.fillStyle='#4D9EFF';cx.textAlign='right';
+    cx.fillText(`${Math.round(lrr)}ms`,lx-6,ly-5);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// HRV PANEL CONTROLLER
+// ═══════════════════════════════════════════════════════════════════
+const HRVPanel = {
+  _poincareInst: null,
+  _freqInst:     null,
+  _tacho:        null,
+  _lastUpdate:   0,
+
+  update(rrBuf) {
+    if (!rrBuf.length) return;
+    const now = Date.now();
+    if (now - this._lastUpdate < 2000) return; // throttle: max 0.5 Hz
+    this._lastUpdate = now;
+
+    const rrs = rrBuf.map(r => r.rr);
+
+    // Show content, hide idle
+    document.getElementById('hrv-idle').style.display = 'none';
+    document.getElementById('hrv-content').style.display = 'block';
+    document.getElementById('hrv-window-lbl').textContent = `${rrs.length} R-R intervals`;
+
+    // Compute metrics
+    const rmssd = hrv_rmssd(rrs), sdnn = hrv_sdnn(rrs);
+    const pnn50 = hrv_pnn50(rrs), sd1 = hrv_sd1(rrs), sd2 = hrv_sd2(rrs);
+
+    const set = (id,v,unit='') => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = v!=null ? (Number.isInteger(v)?v:v.toFixed(1)) : '--';
+    };
+    set('hm-rmssd', rmssd!=null?Math.round(rmssd):null);
+    set('hm-sdnn',  sdnn!=null?Math.round(sdnn):null);
+    set('hm-pnn50', pnn50);
+    set('hm-sd1',   sd1);
+    set('hm-sd2',   sd2);
+
+    // Frequency domain (only if enough data)
+    const freq = computeLFHF(rrBuf);
+    if (freq) {
+      document.getElementById('freq-note').textContent = `${freq.durationSec}s`;
+      set('hm-lfhf', freq.lfhf);
+      set('lf-val',  freq.lf);
+      set('hf-val',  freq.hf);
+      set('lfhf2-val', freq.lfhf);
+
+      const lfhf = freq.lfhf;
+      const interp = !lfhf ? '—' : lfhf < 1.5 ? 'parasympathetic ↑' : lfhf < 2.5 ? 'balanced' : 'sympathetic ↑';
+      document.getElementById('lfhf-interp').textContent = interp;
+      const lfhfEl = document.getElementById('hm-lfhf');
+      if (lfhfEl) lfhfEl.style.color = !lfhf?'var(--text)': lfhf<1.5?'var(--accent)': lfhf<2.5?'var(--yellow)':'var(--red)';
+
+      if (!this._freqInst) this._freqInst = new FreqPlot(document.getElementById('freq-plot'));
+      this._freqInst.render(freq);
+    }
+
+    // Poincaré
+    document.getElementById('poincare-n').textContent = `${rrs.length-1} pairs`;
+    if (!this._poincareInst) this._poincareInst = new PoincarePlot(document.getElementById('poincare'));
+    this._poincareInst.render(rrs);
+
+    // Tachogram
+    if (!this._tacho) this._tacho = new Tachogram(document.getElementById('tachogram'));
+    this._tacho.render(rrBuf);
+  },
+
+  reset() { this._poincareInst=null; this._freqInst=null; this._tacho=null; this._lastUpdate=0; }
+};
+
+App.init();
+</script>
+</body>
+</html>
